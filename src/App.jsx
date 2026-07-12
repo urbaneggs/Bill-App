@@ -406,7 +406,9 @@ export default function App() {
               <tr>
                 <th>Description</th>
                 <th>Qty</th>
+                <th>Total Count</th>
                 <th>Rate</th>
+                <th>Discount</th>
                 <th>Amount</th>
               </tr>
             </thead>
@@ -415,7 +417,9 @@ export default function App() {
                 <tr key={item.id}>
                   <td>{item.desc || 'Item'}</td>
                   <td>{item.qty} {item.unit}</td>
+                  <td>{item.totalCount}</td>
                   <td>₹{item.price}</td>
+                  <td>₹{item.discount}</td>
                   <td>₹{item.subtotal}</td>
                 </tr>
               ))}

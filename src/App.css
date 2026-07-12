@@ -421,22 +421,34 @@ body {
 /* ========================================= */
 
 .print-only-invoice {
-  width: 210mm; /* A4 width */
+  position: absolute;
+  top: -9999px;
+  left: -9999px;
+  width: 210mm; /* Standard A4 paper width */
+  min-height: 297mm; /* Standard A4 paper height */
   background-color: white;
-  margin: 0;
-  padding: 0;
-  position: relative;
+  overflow: hidden;
 }
 
 .print-background {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
-  display: block;
+  height: 100%;
+  object-fit: cover; 
+  z-index: 1; /* Sends it to the back */
 }
 
 .print-content {
-  padding: 0.5in 0.8in;
-  color: black;
-  font-family: Arial, sans-serif;
+  position: relative;
+  z-index: 2; /* Brings it to the front */
+  
+  /* IMPORTANT: Adjust this padding to push your table down 
+     so it doesn't overlap your letterhead's actual logo/header graphic */
+  padding-top: 200px; 
+  padding-left: 40px;
+  padding-right: 40px;
 }
 
 .print-table {
