@@ -535,3 +535,23 @@ body {
     z-index: 1 !important; /* Ensure text sits on top of the image */
   }
 }
+
+/* --- PAYMENT BOX RESPONSIVE SIZING --- */
+
+/* 1. Default Mobile Rule: Let them fill the space naturally */
+.payment-input-box {
+  width: 100%;
+}
+
+/* 2. Desktop/Tablet Rule: Stop them from expanding too much so the row fits */
+@media (min-width: 768px) {
+  .payment-input-box {
+    max-width: 100px; 
+  }
+}
+
+/* 3. Automatic Locked State: Turns the box gray when disabled */
+.payment-input-box:disabled {
+  background-color: #e9ecef;
+  cursor: not-allowed;
+}

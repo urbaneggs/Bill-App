@@ -4,12 +4,49 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { useRef } from 'react';
 
-// Helper function for Indian comma formatting
-const formatNumberWithCommas = (value) => {
+// --- FORMATTING & MATH TOOLS ---
+
+// 1. Core Math Rounder: Destroys infinite decimals natively
+const roundMath = (num) => {
+  return Math.round((Number(num) || 0) * 100) / 100;
+};
+
+// 2. Formats Currency: Indian commas + strictly 2 decimal places
+const formatINR = (value) => {
+  return Number(value || 0).toLocaleString('en-IN', { 
+    minimumFractionDigits: 2, 
+    maximumFractionDigits: 2 
+  });
+};
+
+// 3. Formats Counts: Indian commas + allows up to 2 decimal places 
+const formatCount = (value) => {
+  return Number(value || 0).toLocaleString('en-IN', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  });
+};
+
+// 4. Input Bouncer: Forces numbers only and strictly 2 decimal places
+const enforceTwoDecimals = (value) => {
   if (!value) return '';
-  const parts = value.toString().split('.');
-  parts[0] = parts[0].replace(/(\d)(?=(\d\d)+\d$)/g, "$1,");
-  return parts.join('.');
+  let val = value.toString().replace(/,/g, '').replace(/[^0-9.]/g, ''); 
+  const parts = val.split('.');
+  if (parts.length > 2) val = parts[0] + '.' + parts.slice(1).join(''); 
+  
+  if (val.includes('.')) {
+    const [whole, decimal] = val.split('.');
+    val = `${whole}.${decimal.substring(0, 2)}`;
+  }
+  return val;
+};
+
+// 5. Smart Input Formatter: Adds commas for typing without breaking decimals
+const formatInputINR = (val) => {
+  if (val === '') return '';
+  const parts = val.toString().split('.');
+  let whole = parts[0] ? Number(parts[0]).toLocaleString('en-IN') : '0';
+  return parts.length > 1 ? `${whole}.${parts[1]}` : whole;
 };
 
 const formatDateToDDMMYYYY = (dateString) => {
@@ -145,24 +182,29 @@ const handleAddFunds = async () => {
     setAdvancePayMode('Cash'); 
   };
 
-  const handleFundsInputChange = (e) => {
-    let val = e.target.value.replace(/,/g, '').replace(/[^0-9.]/g, '');
-    const parts = val.split('.');
-    if (parts.length > 2) val = parts[0] + '.' + parts.slice(1).join('');
-    setFundsToAdd(val);
+const handleFundsInputChange = (e) => {
+    setFundsToAdd(enforceTwoDecimals(e.target.value));
   };
 
-  const handleInputChange = (id, field, value) => {
+const handleInputChange = (id, field, value) => {
     const newItems = items.map(item => {
       if (item.id === id) {
-        const updatedItem = { ...item, [field]: value };
+        // Apply our bouncer ONLY to the number fields
+        let safeValue = value;
+        if (field === 'qty' || field === 'price' || field === 'discount') {
+          safeValue = enforceTwoDecimals(value);
+        }
+        
+        const updatedItem = { ...item, [field]: safeValue };
         const qtyNum = parseFloat(updatedItem.qty) || 0;
         const priceNum = parseFloat(updatedItem.price) || 0;
         const discountNum = parseFloat(updatedItem.discount) || 0;
         const multiplier = (updatedItem.unit === 'Trays') ? 30 : 1;
         
-        updatedItem.totalCount = qtyNum * multiplier;
-        updatedItem.subtotal = updatedItem.totalCount * (priceNum - discountNum);
+        // --- STEP 2: The Math Rounder is applied here! ---
+        updatedItem.totalCount = roundMath(qtyNum * multiplier);
+        updatedItem.subtotal = roundMath(updatedItem.totalCount * (priceNum - discountNum));
+        
         return updatedItem;
       }
       return item;
@@ -170,24 +212,45 @@ const handleAddFunds = async () => {
     setItems(newItems);
   };
 
-  const handleAmountPaidChange = (e) => {
-    let val = e.target.value.replace(/,/g, '').replace(/[^0-9.]/g, '');
-    const parts = val.split('.');
-    if (parts.length > 2) val = parts[0] + '.' + parts.slice(1).join('');
-    setPaidAmount(val);
+const handleAmountPaidChange = (e) => {
+    let safeVal = enforceTwoDecimals(e.target.value);
+    
+    // Allow the box to be completely empty so the user can backspace freely
+    if (safeVal === '') {
+      setPaidAmount('');
+      return;
+    }
+
+    const numVal = parseFloat(safeVal) || 0;
+    const currentAdvanceApplied = parseFloat(advanceApplied) || 0;
+    
+    // The Seesaw: Max allowed is Grand Total minus whatever Advance is already applied
+    const maxApplicable = roundMath(grandTotal - currentAdvanceApplied);
+
+    if (numVal > maxApplicable) {
+      safeVal = maxApplicable.toString();
+    }
+    setPaidAmount(safeVal);
   };
 
   const handleAdvanceAppliedChange = (e) => {
-    let val = e.target.value.replace(/,/g, '').replace(/[^0-9.]/g, '');
-    const parts = val.split('.');
-    if (parts.length > 2) val = parts[0] + '.' + parts.slice(1).join('');
+    let safeVal = enforceTwoDecimals(e.target.value);
     
-    // Hard Ceiling Guard: Prevents applying more than Grand Total OR actual available Advance
-    const maxApplicable = Math.min(grandTotal, currentAdvance);
-    if (parseFloat(val) > maxApplicable) {
-      val = maxApplicable.toString();
+    if (safeVal === '') {
+      setAdvanceApplied('');
+      return;
     }
-    setAdvanceApplied(val);
+
+    const numVal = parseFloat(safeVal) || 0;
+    const currentPaid = parseFloat(paidAmount) || 0;
+    
+    // The Seesaw: Max allowed is available wallet balance OR remaining Grand Total
+    const maxApplicable = Math.min(currentAdvance, roundMath(grandTotal - currentPaid));
+
+    if (numVal > maxApplicable) {
+      safeVal = maxApplicable.toString();
+    }
+    setAdvanceApplied(safeVal);
   };
 
   const addRow = () => {
@@ -197,105 +260,104 @@ const handleAddFunds = async () => {
   const removeRow = (id) => {
     if (items.length > 1) setItems(items.filter(item => item.id !== id));
   };
+
+  // --- RESET DASHBOARD HELPER ---
+  const resetDashboard = () => {
+    // 1. Clear the client and ledger
+    setClient('');
+    setPaidAmount('');
+    setAdvanceApplied('');
+    setPaymentMode('Cash');
+    setCheckNumber('');
+    
+    // 2. Reset the inventory table to a single blank row
+    setItems([{ id: Date.now(), desc: '', qty: 0, unit: 'Trays', price: 0, discount: 0, subtotal: 0, totalCount: 0 }]);
+    
+    // 3. Increment the invoice number for the next customer
+    const parts = invoiceNo.split('-');
+    if (parts.length === 3) {
+      const nextSeq = ("000" + (parseInt(parts[2], 10) + 1)).slice(-3);
+      setInvoiceNo(`${parts[0]}-${parts[1]}-${nextSeq}`);
+    }
+  };
 // --- SUBMISSION ACTIONS ---
-  const handleSave = async () => {
-    // 1. Format the Items Summary (FIXED: /Egg for Trays)
+
+  // 1. The Database Engine (Only handles the connection)
+  const submitInvoiceData = async () => {
     const itemsSummary = items.map(i => {
       const priceUnit = i.unit === 'Trays' ? 'Egg' : i.unit;
       return `${i.qty} ${i.unit} - ${i.desc || 'Item'} @ ₹${i.price}/${priceUnit} (Disc: ₹${i.discount})`;
     }).join(' | ');
 
-    // 2. Format the Check Number into the Payment Mode
-    const finalPaymentMode = paymentMode === 'Cheque' && checkNumber 
-      ? `Cheque (No. ${checkNumber})` 
-      : paymentMode;
+    const finalPaymentMode = paymentMode === 'Cheque' && checkNumber ? `Cheque (No. ${checkNumber})` : paymentMode;
 
-    // 3. Calculate Totals for the Database Columns
     const totalTrays = items.filter(i => i.unit === 'Trays').reduce((sum, i) => sum + (parseFloat(i.qty) || 0), 0);
     const totalBirds = items.filter(i => i.unit === 'Birds').reduce((sum, i) => sum + (parseFloat(i.qty) || 0), 0);
     const totalEggs = items.filter(i => i.unit === 'Trays').reduce((sum, i) => sum + ((parseFloat(i.qty) || 0) * 30), 0);
 
-    // 4. Format the Paid Column to show Advance Breakdown (FIXED)
-    let formattedPaidColumn = `₹${numericPaidAmount}`; // Default if no advance is used
+    const formatINR = (val) => Number(val).toLocaleString('en-IN');
+
+    let formattedPaidColumn = `₹${formatINR(numericPaidAmount)}`; 
     if (numericAdvanceApplied > 0) {
       const totalCombinedPayment = numericAdvanceApplied + numericPaidAmount;
-      formattedPaidColumn = `(ADV ₹${numericAdvanceApplied}) + ₹${numericPaidAmount} = ₹${totalCombinedPayment}`;
+      formattedPaidColumn = `(ADV ₹${formatINR(numericAdvanceApplied)}) + ₹${formatINR(numericPaidAmount)} = ₹${formatINR(totalCombinedPayment)}`;
     }
 
-    // 5. Package the Data Payload EXACTLY as Apps Script expects
     const payload = {
-      action: 'saveInvoice',
-      invoiceNo: invoiceNo,
-      date: date,
-      batch: batch,
-      client: client,
-      totalTrays: totalTrays,
-      totalEggs: totalEggs,
-      totalBirds: totalBirds,
-      grandTotal: grandTotal,
-      paid: formattedPaidColumn, // Sending our new formatted equation here!
-      advanceUsed: numericAdvanceApplied, // Still sending the raw number so the backend can deduct the wallet!
-      balance: balanceDue,
-      status: derivedStatus,
-      items: itemsSummary,
-      payMode: finalPaymentMode,
-      ledgerEntry: "Sale" 
+      action: 'saveInvoice', invoiceNo, date, batch, client,
+      totalTrays, totalEggs, totalBirds, grandTotal,
+      paid: formattedPaidColumn, advanceUsed: numericAdvanceApplied,
+      balance: balanceDue, status: derivedStatus, items: itemsSummary,
+      payMode: finalPaymentMode, ledgerEntry: "Sale" 
     };
 
-    // 6. Send to Google Sheets
     try {
-      const response = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify(payload)
-      });
-      
+      const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
       const result = await response.json();
-
-      if (result.success) {
-        alert(`Success! Invoice ${invoiceNo} has been saved to the Master Sales database.`);
-      } else {
-        alert(`Save failed: ${result.message}`);
-      }
+      if (!result.success) alert(`Save failed: ${result.message}`);
+      return result.success; 
     } catch (error) {
       console.error("Error saving data:", error);
       alert("Connection error. Could not save to database.");
+      return false;
     }
   };
 
+  // 2. Button A: Save Only
+  const handleSaveOnly = async () => {
+    const isSaved = await submitInvoiceData();
+    if (isSaved) {
+      alert(`Success! Invoice ${invoiceNo} has been saved.`);
+      resetDashboard(); // Reset immediately
+    }
+  };
+
+  // 3. Button B: Generate PDF & Save
   const handleGeneratePDF = async () => {
-  // 1. Save the data
-  handleSave();
-  
-  // 2. Allow render
-  await new Promise((resolve) => setTimeout(resolve, 100));
+    const isSaved = await submitInvoiceData();
+    if (!isSaved) return; // Stop everything if the database save fails!
 
-  const element = printRef.current;
-  if (!element) return;
+    // Wait a moment for React to finish any rendering
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const element = printRef.current;
+    if (!element) return;
 
-  try {
-    // Capture the element
-    const canvas = await html2canvas(element, {
-      scale: 2, 
-      useCORS: true,
-      backgroundColor: "#ffffff", // Ensures white background
-      logging: false
-    });
-    
-    const imgData = canvas.toDataURL('image/jpeg', 0.75);
-    
-    // Create PDF
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-    
-    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
-    
-    // Save
-    pdf.save(`UrbanEggs_Invoice_${invoiceNo || 'Draft'}.pdf`);
-  } catch (error) {
-    console.error("PDF generation failed:", error);
-  }
-};
+    try {
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false });
+      const imgData = canvas.toDataURL('image/jpeg', 0.75);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+      pdf.save(`UrbanEggs_Invoice_${invoiceNo}.pdf`);
+      
+      resetDashboard(); // Reset ONLY after the PDF is safely downloaded!
+    } catch (error) {
+      console.error("PDF generation failed:", error);
+      alert("Database saved, but PDF generation failed.");
+    }
+  };
   return (
     <div className="dashboard-container">
       {/* Header Section */}
@@ -325,8 +387,7 @@ const handleAddFunds = async () => {
           <label>
             Client Name 
             {client && (
-              <span className="wallet-badge">
-                Advance: ₹{formatNumberWithCommas(currentAdvance)}
+              <span className="advance-badge">Advance: ₹{formatINR(currentAdvance - (parseFloat(advanceApplied) || 0))}
                 <span className="add-funds-toggle" onClick={() => setShowAddFunds(!showAddFunds)}> [+]</span>
               </span>
             )}
@@ -349,7 +410,7 @@ const handleAddFunds = async () => {
                 type="text" 
                 inputMode="decimal" 
                 className="smart-field"
-                value={formatNumberWithCommas(fundsToAdd)} 
+                value={formatInputINR(fundsToAdd)}
                 onChange={handleFundsInputChange} 
                 placeholder="Amount (₹)" 
               />
@@ -377,7 +438,7 @@ const handleAddFunds = async () => {
             <tr>
               <th style={{ width: '35%' }}>Description</th>
               <th style={{ width: '10%' }}>Qty</th>
-              <th style={{ width: '15%' }}>Unit</th>
+              <th style={{ width: '10%' }}>Unit</th>
               <th style={{ width: '10%' }}>Total Count</th>
               <th style={{ width: '10%' }}>Unit Cost (₹)</th>
               <th style={{ width: '10%' }}>Discount (₹)</th>
@@ -422,15 +483,14 @@ const handleAddFunds = async () => {
           
           <div className="ledger-item">
             <span>Amount Paid (₹):</span>
-            <input 
-              type="text" 
-              inputMode="decimal" 
-              className="amount-paid-input"
-              value={formatNumberWithCommas(paidAmount)} 
-              onFocus={(e) => e.target.select()} 
-              onChange={handleAmountPaidChange} 
-              placeholder="0.00"
-            />
+          <input 
+            type="text" 
+            className="smart-field payment-input-box"
+            value={formatInputINR(paidAmount)} 
+            onChange={handleAmountPaidChange} 
+            placeholder="Amount (₹)"
+            disabled={grandTotal <= 0 || (parseFloat(advanceApplied) || 0) >= grandTotal}
+          />
           </div>
 
           <div className="ledger-item">
@@ -461,15 +521,14 @@ const handleAddFunds = async () => {
 
           <div className="ledger-item">
             <span>Advance Applied (₹):</span>
-            <input 
-              type="text" 
-              inputMode="decimal" 
-              className="amount-paid-input"
-              value={formatNumberWithCommas(advanceApplied)} 
-              onFocus={(e) => e.target.select()} 
-              onChange={handleAdvanceAppliedChange} 
-              placeholder="0.00"
-            />
+          <input 
+            type="text" 
+            className="smart-field payment-input-box"
+            value={formatInputINR(advanceApplied)} 
+            onChange={handleAdvanceAppliedChange} 
+            placeholder="Advance (₹)" 
+            disabled={grandTotal <= 0 || currentAdvance <= 0 || (parseFloat(paidAmount) || 0) >= grandTotal}
+          />
           </div>
           
           <div className="ledger-item">
@@ -489,7 +548,7 @@ const handleAddFunds = async () => {
 
       {/* Action Buttons */}
       <div className="action-buttons-container">
-        <button className="btn-save-only" onClick={handleSave}>
+        <button className="btn-save-only" onClick={handleSaveOnly}>
           💾 Save Only
         </button>
         <button className="btn-generate-pdf" onClick={handleGeneratePDF}>
@@ -521,7 +580,7 @@ const handleAddFunds = async () => {
             </div>
           </div>
 
-          <table className="print-table">
+<table className="print-table">
             <thead>
               <tr>
                 <th>Description</th>
@@ -536,20 +595,20 @@ const handleAddFunds = async () => {
               {items.map(item => (
                 <tr key={item.id}>
                   <td>{item.desc || 'Item'}</td>
-                  <td>{item.qty} {item.unit}</td>
-                  <td>{item.totalCount}</td>
-                  <td>₹{item.price}</td>
-                  <td>₹{item.discount}</td>
-                  <td>₹{item.subtotal}</td>
+                  <td>{formatCount(item.qty)} {item.unit}</td>
+                  <td>{formatCount(item.totalCount)}</td>
+                  <td>₹{formatINR(item.price)}</td>
+                  <td>₹{formatINR(item.discount)}</td>
+                  <td>₹{formatINR(item.subtotal)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
 
           <div className="print-totals">
-            <p><strong>Grand Total:</strong> ₹{grandTotal}</p>
-            <p><strong>Amount Paid:</strong> ₹{numericPaidAmount + numericAdvanceApplied} ({paymentMode})</p>
-            <p><strong>Balance Due:</strong> ₹{balanceDue}</p>
+            <p><strong>Grand Total:</strong> ₹{formatINR(grandTotal)}</p>
+            <p><strong>Amount Paid:</strong> ₹{formatINR(numericPaidAmount + numericAdvanceApplied)} ({paymentMode})</p>
+            <p><strong>Balance Due:</strong> ₹{formatINR(balanceDue)}</p>
           </div>
         </div>
       </div>
