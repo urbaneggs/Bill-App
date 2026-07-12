@@ -487,8 +487,51 @@ body {
 /* PHYSICAL PRINT ENGINE (Ctrl+P)            */
 /* ========================================= */
 @media print {
-  /* Hide UI elements when using Ctrl+P */
+  /* 1. Nuke the default browser margins to stop the 2nd page */
+  @page {
+    margin: 0mm; 
+    size: A4 portrait;
+  }
+
+  /* 2. Hide the Dashboard UI completely */
   .header, .meta-grid, .table-responsive-wrapper, .btn-add-row, .ledger-section, .action-buttons-container {
     display: none !important;
+  }
+
+  /* 3. Strip backgrounds so the image can breathe */
+  body, html {
+    margin: 0 !important;
+    padding: 0 !important;
+    background-color: transparent !important; 
+  }
+
+  /* 4. Pull the invoice onto the page and lock it to 1 page */
+  .print-only-invoice {
+    position: absolute !important; 
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important; 
+    background-color: transparent !important; /* CRITICAL: Removes the white wall */
+    overflow: hidden !important; /* Chops off anything trying to spawn page 2 */
+  }
+
+  /* 5. Keep the letterhead in the background, but NOT behind the div */
+  .print-background {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important; 
+    
+    object-fit: fill !important;
+    
+    z-index: 0 !important; 
+  }
+
+  /* 6. Push the text to the front */
+  .print-content {
+    position: relative !important;
+    z-index: 1 !important; /* Ensure text sits on top of the image */
   }
 }
