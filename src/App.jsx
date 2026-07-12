@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -18,6 +18,8 @@ const formatDateToDDMMYYYY = (dateString) => {
   return `${day}-${month}-${year}`;
 };
 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxpo0qxQ9BWImoLlVBEty3Tv3VBNL2IRdExi1UNKNovTDdwr_qrt-lDRg9TOiUqMoOF8w/exec";
+
 export default function App() {
   const printRef = useRef(null);
 
@@ -28,16 +30,12 @@ export default function App() {
   const [batch, setBatch] = useState('Batch 1');
   const [client, setClient] = useState('');
 
-  // --- MOCK CLIENT DATABASE & ADVANCE STATE ---
-// --- MOCK CLIENT DATABASE ---
-  const [clientsDb, setClientsDb] = useState([
-    { name: 'John Doe', advance: 5000, phone: '555-0101', address: '123 Farm Rd, Hanover Park, IL' },
-    { name: 'Jane Smith', advance: 12000, phone: '555-0202', address: '456 Market St, Chicago, IL' },
-    { name: 'Urban Cafe', advance: 0, phone: '555-0303', address: '789 Main St, Elgin, IL' }
-  ]);
+  const [clientsDb, setClientsDb] = useState([]);
+
   const [showAddFunds, setShowAddFunds] = useState(false);
   const [fundsToAdd, setFundsToAdd] = useState('');
-
+  const [advanceNo, setAdvanceNo] = useState('');
+  const [advancePayMode, setAdvancePayMode] = useState('Cash');
   // --- INVENTORY TABLE STATE ---
   const [items, setItems] = useState([
     { id: Date.now(), desc: '', qty: 0, unit: 'Trays', price: 0, discount: 0, subtotal: 0, totalCount: 0 }
@@ -48,6 +46,32 @@ export default function App() {
   const [advanceApplied, setAdvanceApplied] = useState('');
   const [paymentMode, setPaymentMode] = useState('Cash');
   const [checkNumber, setCheckNumber] = useState('');
+
+// --- FETCH INITIAL DATA FROM GOOGLE SHEETS ---
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'getInitialData' }),
+        });
+        
+        const data = await response.json();
+        
+        // Populate the app with live data
+        if (data.clients) setClientsDb(data.clients);
+        if (data.nextInvoice) setInvoiceNo(data.nextInvoice);
+        if (data.nextAdvance) setAdvanceNo(data.nextAdvance);
+
+        console.log("✅ Successfully connected to Master Sheet:", data);
+      } catch (error) {
+        console.error("❌ Error fetching data:", error);
+        alert("Failed to connect to the database. Check your internet connection or Apps Script URL.");
+      }
+    };
+
+    fetchInitialData();
+  }, []); // The empty array means this only runs once when the app opens
 
   // --- LOGIC CALCULATIONS ---
   const grandTotal = items.reduce((sum, item) => sum + item.subtotal, 0);
@@ -70,15 +94,55 @@ export default function App() {
   const batchOptions = Array.from({ length: 50 }, (_, i) => `Batch ${i + 1}`);
 
   // --- HANDLERS ---
-  const handleAddFunds = () => {
+const handleAddFunds = async () => {
     const num = parseFloat(fundsToAdd) || 0;
-    if (num > 0 && client) {
-      setClientsDb(prevDb => prevDb.map(c =>
-        c.name === client ? { ...c, advance: c.advance + num } : c
-      ));
+    
+    if (num > 0 && client && advanceNo) {
+      // 1. Package the payload for the Advance Ledger
+      const payload = {
+        action: 'logAdvance',
+        date: new Date().toISOString().split('T')[0], // Today's date
+        advNo: advanceNo,
+        client: client,
+        amount: num,
+        payMode: advancePayMode
+      };
+
+      try {
+        // 2. Send to Google Sheets
+        const response = await fetch(SCRIPT_URL, {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+
+        if (result.success) {
+          // 3. Update the frontend wallet balance immediately
+          setClientsDb(prevDb => prevDb.map(c =>
+            c.name === client ? { ...c, advance: c.advance + num } : c
+          ));
+          
+          alert(`Success! Advance ${advanceNo} for ₹${num} added to the Ledger.`);
+          
+          // 4. Increment the Advance Number for the next transaction
+          const parts = advanceNo.split('-');
+          if(parts.length === 3) {
+            const nextSeq = ("000" + (parseInt(parts[2], 10) + 1)).slice(-3);
+            setAdvanceNo(`${parts[0]}-${parts[1]}-${nextSeq}`);
+          }
+        } else {
+          alert("Failed to save advance to the database.");
+        }
+      } catch (error) {
+        console.error("Error saving advance:", error);
+        alert("Connection error. Could not save to database.");
+      }
     }
+    
+    // Close the popover and reset fields
     setShowAddFunds(false);
     setFundsToAdd('');
+    setAdvancePayMode('Cash'); 
   };
 
   const handleFundsInputChange = (e) => {
@@ -133,30 +197,69 @@ export default function App() {
   const removeRow = (id) => {
     if (items.length > 1) setItems(items.filter(item => item.id !== id));
   };
-  // --- SUBMISSION ACTIONS ---
-  const handleSave = () => {
-    // 1. Format the Items Summary with Prices and Discounts
-    const itemsSummary = items.map(i => 
-      `${i.qty} ${i.unit} - ${i.desc || 'Item'} @ ₹${i.price}/${i.unit} (Disc: ₹${i.discount})`
-    ).join(' | ');
+// --- SUBMISSION ACTIONS ---
+  const handleSave = async () => {
+    // 1. Format the Items Summary (FIXED: /Egg for Trays)
+    const itemsSummary = items.map(i => {
+      const priceUnit = i.unit === 'Trays' ? 'Egg' : i.unit;
+      return `${i.qty} ${i.unit} - ${i.desc || 'Item'} @ ₹${i.price}/${priceUnit} (Disc: ₹${i.discount})`;
+    }).join(' | ');
 
     // 2. Format the Check Number into the Payment Mode
     const finalPaymentMode = paymentMode === 'Cheque' && checkNumber 
       ? `Cheque (No. ${checkNumber})` 
       : paymentMode;
 
-    // 3. Package the Data Payload
+    // 3. Calculate Totals for the Database Columns
+    const totalTrays = items.filter(i => i.unit === 'Trays').reduce((sum, i) => sum + (parseFloat(i.qty) || 0), 0);
+    const totalBirds = items.filter(i => i.unit === 'Birds').reduce((sum, i) => sum + (parseFloat(i.qty) || 0), 0);
+    const totalEggs = items.filter(i => i.unit === 'Trays').reduce((sum, i) => sum + ((parseFloat(i.qty) || 0) * 30), 0);
+
+    // 4. Format the Paid Column to show Advance Breakdown (FIXED)
+    let formattedPaidColumn = `₹${numericPaidAmount}`; // Default if no advance is used
+    if (numericAdvanceApplied > 0) {
+      const totalCombinedPayment = numericAdvanceApplied + numericPaidAmount;
+      formattedPaidColumn = `(ADV ₹${numericAdvanceApplied}) + ₹${numericPaidAmount} = ₹${totalCombinedPayment}`;
+    }
+
+    // 5. Package the Data Payload EXACTLY as Apps Script expects
     const payload = {
-      invoiceNo, date, batch, client,
-      grandTotal, paid: numericPaidAmount, advanceApplied: numericAdvanceApplied,
-      balanceDue, status: derivedStatus, itemsSummary, paymentMode: finalPaymentMode
+      action: 'saveInvoice',
+      invoiceNo: invoiceNo,
+      date: date,
+      batch: batch,
+      client: client,
+      totalTrays: totalTrays,
+      totalEggs: totalEggs,
+      totalBirds: totalBirds,
+      grandTotal: grandTotal,
+      paid: formattedPaidColumn, // Sending our new formatted equation here!
+      advanceUsed: numericAdvanceApplied, // Still sending the raw number so the backend can deduct the wallet!
+      balance: balanceDue,
+      status: derivedStatus,
+      items: itemsSummary,
+      payMode: finalPaymentMode,
+      ledgerEntry: "Sale" 
     };
 
-    // For testing: Print this to the console so we can see what goes to Google Sheets
-    console.log("📦 PAYLOAD READY FOR GOOGLE SHEETS:", payload);
-    
-    // Optional: We can add an alert here to confirm it worked during testing
-    alert(`Saved! Payload packaged for Master Sheet.\n(Check browser console to view data)`);
+    // 6. Send to Google Sheets
+    try {
+      const response = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      
+      const result = await response.json();
+
+      if (result.success) {
+        alert(`Success! Invoice ${invoiceNo} has been saved to the Master Sales database.`);
+      } else {
+        alert(`Save failed: ${result.message}`);
+      }
+    } catch (error) {
+      console.error("Error saving data:", error);
+      alert("Connection error. Could not save to database.");
+    }
   };
 
   const handleGeneratePDF = async () => {
@@ -250,7 +353,18 @@ export default function App() {
                 onChange={handleFundsInputChange} 
                 placeholder="Amount (₹)" 
               />
-              <button className="btn-add-funds" onClick={handleAddFunds}>Add Funds</button>
+              <select 
+                value={advancePayMode} 
+                onChange={(e) => setAdvancePayMode(e.target.value)}
+                className="payment-mode-select"
+                style={{ marginLeft: '10px', padding: '5px' }}
+              >
+                <option value="Cash">Cash</option>
+                <option value="UPI">UPI</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="Cheque">Cheque</option>
+              </select>
+              <button className="btn-add-funds" onClick={handleAddFunds} style={{ marginLeft: '10px' }}>Add</button>
             </div>
           )}
         </div>
@@ -280,7 +394,7 @@ export default function App() {
                   <select value={item.unit} onChange={(e) => handleInputChange(item.id, 'unit', e.target.value)}>
                     <option value="Trays">Trays</option>
                     <option value="Birds">Birds</option>
-                    <option value="Tractors">Tractor/Load</option>
+                    <option value="Loads">Load</option>
                     <option value="Other">Other</option>
                   </select>
                 </td>
