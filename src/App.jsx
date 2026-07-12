@@ -1,10 +1,8 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import './App.css';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { useRef } from 'react';
-
-const [isGenerating, setIsGenerating] = useState(false);
 
 // Helper function for Indian comma formatting
 const formatNumberWithCommas = (value) => {
@@ -16,6 +14,8 @@ const formatNumberWithCommas = (value) => {
 
 export default function App() {
   const printRef = useRef(null);
+
+  const [isGenerating, setIsGenerating] = useState(false);
   // --- CONTROL PANEL STATE ---
   const [invoiceNo, setInvoiceNo] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
