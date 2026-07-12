@@ -470,6 +470,19 @@ body {
   margin-bottom: 20px;
 }
 
+.print-totals {
+  margin-top: 30px;          /* Adds some breathing room below the table */
+  display: flex;             /* Turns on flexbox layout */
+  flex-direction: column;    /* Stacks your <p> tags vertically */
+  align-items: flex-end;     /* Pushes the entire stack to the right edge */
+  text-align: right;         /* Ensures the text itself aligns to the right */
+}
+
+.print-totals p {
+  margin: 5px 0;
+  font-size: 16px; 
+}
+
 /* ========================================= */
 /* PHYSICAL PRINT ENGINE (Ctrl+P)            */
 /* ========================================= */

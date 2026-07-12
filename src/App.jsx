@@ -12,6 +12,12 @@ const formatNumberWithCommas = (value) => {
   return parts.join('.');
 };
 
+const formatDateToDDMMYYYY = (dateString) => {
+  if (!dateString) return '';
+  const [year, month, day] = dateString.split('-');
+  return `${day}-${month}-${year}`;
+};
+
 export default function App() {
   const printRef = useRef(null);
 
@@ -172,14 +178,14 @@ export default function App() {
       logging: false
     });
     
-    const imgData = canvas.toDataURL('image/png');
+    const imgData = canvas.toDataURL('image/jpeg', 0.75);
     
     // Create PDF
     const pdf = new jsPDF('p', 'mm', 'a4');
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
     
-    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
     
     // Save
     pdf.save(`UrbanEggs_Invoice_${invoiceNo || 'Draft'}.pdf`);
@@ -396,7 +402,7 @@ export default function App() {
             </div>
             <div className="print-meta">
               <p><strong>Invoice No:</strong> {invoiceNo || 'Draft'}</p>
-              <p><strong>Date:</strong> {date}</p>
+              <p><strong>Date:</strong> {formatDateToDDMMYYYY(date)}</p>
               <p><strong>Batch:</strong> {batch}</p>
             </div>
           </div>
