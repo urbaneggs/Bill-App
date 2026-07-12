@@ -1,0 +1,469 @@
+:root {
+  --primary-yellow: #FFCC00;
+  --primary-hover: #e6b800;
+  --text-dark: #18181b;
+  --bg-gray: #f4f4f5;
+  --surface-white: #ffffff;
+  --border-light: #e4e4e7;
+}
+
+body {
+  margin: 0;
+  padding: 20px;
+  background-color: var(--bg-gray);
+  color: var(--text-dark);
+  /* Urban Eggs Website Font Theme */
+  font-family: 'Optima', 'Segoe UI', Tahoma, sans-serif; 
+}
+
+.dashboard-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  background: var(--surface-white);
+  padding: 40px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  padding: 20px 0;
+  border-bottom: 3px solid var(--primary-yellow);
+  margin-bottom: 30px;
+  min-height: 100px;
+}
+
+.header-logo {
+  /* Logo scales fluidly between 50px and 85px */
+  height: clamp(50px, 8vw, 85px);
+  width: auto;
+}
+
+.header-spacer {
+  /* This matches the logo size to balance it. 
+     As the window shrinks, this shrinks to 0px, moving the text to the left! */
+  width: clamp(0px, 8vw, 85px);
+}
+
+.header h1 {
+  margin: 0;
+  flex-grow: 1; /* This makes the text take up all available space */
+  font-size: clamp(16px, 2.5vw, 24px); /* Scales font smoothly */
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  font-weight: normal;
+  text-align: center; /* This centers the text naturally */
+  padding: 0 15px;
+}
+
+/* --- NEW: The Control Panel Styles --- */
+.meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* Two columns on desktop */
+  gap: 20px;
+  margin-bottom: 30px;
+  background: var(--surface-white);
+  padding: 20px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.form-group input, 
+.form-group select {
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 16px; /* 16px prevents iPhones from auto-zooming! */
+  font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.form-group input:focus, 
+.form-group select:focus {
+  outline: none;
+  border-color: var(--primary-yellow);
+  box-shadow: 0 0 0 2px rgba(255, 204, 0, 0.2);
+}
+
+.smart-field {
+  background-color: #fff9e6;
+  border-color: var(--primary-yellow) !important;
+  font-weight: bold;
+}
+
+.wallet-badge {
+  background-color: #e3f2fd;
+  color: #1565c0;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  margin-left: 10px;
+  font-weight: normal;
+}
+
+.client-action-row {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-secondary {
+  background-color: #f1f1f1;
+  border: 1px solid #ccc;
+  padding: 10px 15px;
+  border-radius: 6px;
+  font-weight: bold;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap; /* Keeps the button from squishing */
+}
+
+.btn-secondary:hover {
+  background-color: #e2e2e2;
+}
+
+/* --- MOBILE RESPONSIVENESS --- */
+@media (max-width: 768px) {
+  body {
+    padding: 10px;
+  }
+  .dashboard-container {
+    padding: 20px;
+  }
+  .meta-grid {
+    grid-template-columns: 1fr; /* Stacks to 1 column on phones */
+    padding: 15px;
+  }
+  .client-action-row {
+    flex-direction: column; /* Stacks the dropdown and button on small screens */
+  }
+
+}
+/* --- TABLE STYLING --- */
+.table-responsive-wrapper {
+  width: 100%;
+  overflow-x: auto; /* Triggers horizontal scrolling on small screens */
+  -webkit-overflow-scrolling: touch; /* Makes scrolling buttery smooth on iPhones/iPads */
+  margin-bottom: 15px;
+  border-radius: 4px;
+}
+
+.item-table {
+  width: 100%;
+  min-width: 800px; /* The magic number: Stops the table from squishing past 800px */
+  border-collapse: collapse;
+}
+
+.item-table thead th {
+  background: #18181b;
+  color: #ffffff;
+  padding: 12px;
+  font-weight: normal;
+  font-size: 14px;
+  border: 1px solid #333; /* Header grid lines */
+}
+
+/* --- STRICT CELL AND INPUT LOCKING --- */
+
+.item-table td {
+  padding: 0; /* Remove padding from cell to stop overflow */
+  border: 1px solid #e4e4e7;
+  height: 40px; /* Optional: Keep consistent height */
+}
+
+.item-table input,
+.item-table select {
+  width: 100%; /* Forces inputs to fill the cell perfectly */
+  box-sizing: border-box; /* Ensures padding doesn't widen the input past 100% */
+}
+
+/* The focus highlight now locks perfectly inside */
+.item-table input:focus, 
+.item-table select:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--primary-yellow);
+  background: #fffdf5;
+}
+
+/* Makes the non-editable Total Count field feel "disabled" */
+.item-table input[readOnly] {
+  cursor: default;
+  color: #666;
+  background-color: #f9f9f9;
+}
+
+/* Stops the yellow box appearing on the read-only field */
+.item-table input[readOnly]:focus {
+  box-shadow: none;
+  background-color: #f9f9f9;
+}
+
+/* --- BUTTON STYLING --- */
+.btn-add-row {
+  margin-top: 20px;
+  padding: 12px 24px;
+  background-color: #18181b;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  font-family: inherit;
+}
+
+.btn-remove {
+  color: #c62828;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 18px; /* Making it a bit bigger for easier clicking */
+  padding: 5px;
+}
+
+/* Makes the field impossible to click */
+.no-interaction {
+  pointer-events: none;
+}
+
+.ledger-section {
+  margin-top: 40px;
+  padding: 20px;
+  background: #f9f9f9;
+  border: 1px solid #e4e4e7;
+  border-radius: 4px;
+}
+
+.ledger-grid {
+  display: flex;
+  flex-wrap: wrap;       /* Forces wrapping on mobile */
+  gap: 20px;             /* Clean, even spacing between columns */
+  align-items: flex-start; /* THIS is the magic line that stops the jagged floating */
+  justify-content: space-between;
+}
+
+.ledger-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px; /* Puts a clean gap between the label, the dropdown, and the check box */
+  flex: 1 1 120px; /* Allows columns to stretch evenly, but wraps them if narrower than 120px */
+}
+
+.ledger-item span {
+  font-size: 12px;
+  color: #666;
+  text-transform: uppercase;
+}
+
+.ledger-item strong {
+  font-size: 1.15rem;
+  padding-top: 4px; 
+}
+
+.ledger-item input, .ledger-item select {
+  padding: 8px;
+  border: 1px solid #e4e4e7;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+/* Unbolded, formatted input for Amount Paid */
+.amount-paid-input {
+  font-weight: normal; 
+  font-size: 1rem;
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  text-align: right;
+  width: 120px;
+  box-sizing: border-box; /* Add this line so padding doesn't change width */
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.1); 
+}
+
+/* Optional: Wrapper to keep the $ symbol clean next to the input */
+.input-with-symbol {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.currency-symbol {
+  font-weight: normal;
+  color: #555;
+}
+
+/* Automated Status Badge Styling */
+.payment-status-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: bold;
+  font-size: 0.9rem;
+  display: inline-block;
+  text-align: center;
+  min-width: 70px;
+  align-self: flex-start; 
+  margin-top: 2px;
+}
+
+/* Payment Mode Dropdown Styling */
+.payment-mode-select {
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+  background-color: white;
+  width: 120px; /* Forces exact size match */
+  box-sizing: border-box;
+}
+.check-number-input {
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  width: 120px;
+  box-sizing: border-box;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.status-pending { 
+  background-color: #ffebee !important; 
+  color: #c62828 !important; 
+}
+.status-partial { 
+  background-color: #fff8e1 !important; 
+  color: #f57f17 !important; 
+}
+.status-paid { 
+  background-color: #e8f5e9 !important; 
+  color: #2e7d32 !important; 
+}
+/* Add Funds UI */
+.add-funds-toggle {
+  cursor: pointer;
+  color: #2e7d32;
+  font-weight: bold;
+  margin-left: 4px;
+}
+.add-funds-toggle:hover {
+  text-decoration: underline;
+}
+
+.add-funds-popover {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px;
+  background-color: #f1f8e9;
+  border: 1px solid #c5e1a5;
+  border-radius: 4px;
+}
+
+.btn-add-funds {
+  background-color: #2e7d32;
+  color: white;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+.btn-add-funds:hover {
+  background-color: #1b5e20;
+}
+/* --- ACTION BUTTONS --- */
+.action-buttons-container {
+  display: flex;
+  justify-content: flex-end;
+  gap: 15px;
+  margin-top: 20px;
+  margin-bottom: 40px;
+}
+
+.btn-save-only, .btn-generate-pdf {
+  padding: 12px 24px;
+  font-size: 1.05rem;
+  font-weight: bold;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn-save-only {
+  background-color: #e0e0e0;
+  color: #333;
+}
+
+.btn-generate-pdf {
+  background-color: #1976d2;
+  color: white;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.btn-save-only:hover, .btn-generate-pdf:hover {
+  opacity: 0.85;
+}
+
+/* ========================================= */
+/* PRINT & PDF STYLES (Global)               */
+/* ========================================= */
+
+.print-only-invoice {
+  width: 210mm; /* A4 width */
+  background-color: white;
+  margin: 0;
+  padding: 0;
+  position: relative;
+}
+
+.print-background {
+  width: 100%;
+  display: block;
+}
+
+.print-content {
+  padding: 0.5in 0.8in;
+  color: black;
+  font-family: Arial, sans-serif;
+}
+
+.print-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid #000;
+  margin-top: 20px;
+}
+
+.print-table th, .print-table td {
+  border: 1px solid #000;
+  padding: 10px;
+  text-align: left;
+}
+
+.print-header-info {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+/* ========================================= */
+/* PHYSICAL PRINT ENGINE (Ctrl+P)            */
+/* ========================================= */
+@media print {
+  /* Hide UI elements when using Ctrl+P */
+  .header, .meta-grid, .table-responsive-wrapper, .btn-add-row, .ledger-section, .action-buttons-container {
+    display: none !important;
+  }
+}
