@@ -212,7 +212,7 @@ const handleInputChange = (id, field, value) => {
     setItems(newItems);
   };
 
-const handleAmountPaidChange = (e) => {
+    const handleAmountPaidChange = (e) => {
     let safeVal = enforceTwoDecimals(e.target.value);
     
     // Allow the box to be completely empty so the user can backspace freely
@@ -280,7 +280,8 @@ const handleAmountPaidChange = (e) => {
       setInvoiceNo(`${parts[0]}-${parts[1]}-${nextSeq}`);
     }
   };
-// --- SUBMISSION ACTIONS ---
+
+  // --- SUBMISSION ACTIONS ---
 
   // 1. The Database Engine (Only handles the connection)
   const submitInvoiceData = async () => {
@@ -335,29 +336,66 @@ const handleAmountPaidChange = (e) => {
   // 3. Button B: Generate PDF & Save
   const handleGeneratePDF = async () => {
     const isSaved = await submitInvoiceData();
-    if (!isSaved) return; // Stop everything if the database save fails!
+    if (!isSaved) return; // Stop if database fails!
 
-    // Wait a moment for React to finish any rendering
+    // Wait a moment for React to finish rendering
     await new Promise((resolve) => setTimeout(resolve, 100));
-    const element = printRef.current;
-    if (!element) return;
+    const wrapper = printRef.current;
+    if (!wrapper) return;
+
+    // Grab all individual pages
+    const pageElements = wrapper.querySelectorAll('.print-page');
+    if (pageElements.length === 0) {
+      alert("Error: Could not find the paginated template.");
+      return;
+    }
 
     try {
-      const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false });
-      const imgData = canvas.toDataURL('image/jpeg', 0.75);
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+
+      // Take a screenshot of EACH page separately
+      for (let i = 0; i < pageElements.length; i++) {
+        const canvas = await html2canvas(pageElements[i], { 
+          scale: 2, 
+          useCORS: true, 
+          backgroundColor: "#ffffff", 
+          logging: false 
+        });
+        const imgData = canvas.toDataURL('image/jpeg', 0.75);
+        
+        if (i > 0) pdf.addPage(); // Add a new blank page to the PDF
+        // Stamp the screenshot onto the exact A4 dimensions so it never stretches!
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+      }
       
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
       pdf.save(`UrbanEggs_Invoice_${invoiceNo}.pdf`);
-      
-      resetDashboard(); // Reset ONLY after the PDF is safely downloaded!
+      resetDashboard(); 
     } catch (error) {
       console.error("PDF generation failed:", error);
       alert("Database saved, but PDF generation failed.");
     }
   };
+
+  // --- PAGINATION LOGIC ---
+  const PAGE_1_MAX = 9;
+  const PAGE_2_MAX = 12; // More room because there is no Client Info block!
+
+  const paginatedItems = [];
+  if (items.length <= PAGE_1_MAX) {
+    paginatedItems.push(items); // Fits on one page
+  } else {
+    // Page 1 gets the first 9
+    paginatedItems.push(items.slice(0, PAGE_1_MAX));
+    // Subsequent pages chunk by 12
+    let remainingItems = items.slice(PAGE_1_MAX);
+    while (remainingItems.length > 0) {
+      paginatedItems.push(remainingItems.slice(0, PAGE_2_MAX));
+      remainingItems = remainingItems.slice(PAGE_2_MAX);
+    }
+  }
+
   return (
     <div className="dashboard-container">
       {/* Header Section */}
@@ -555,62 +593,102 @@ const handleAmountPaidChange = (e) => {
           🖨️ Generate PDF & Save
         </button>
       </div>
-            {/* ========================================= */}
-      {/* HIDDEN PRINT-ONLY INVOICE TEMPLATE          */}
       {/* ========================================= */}
-      <div className="print-only-invoice" ref={printRef}>
-        <img src="/letterhead.png" alt="Letterhead" className="print-background" />
-        {/* Adjust top padding in CSS to push text below your PNG's header graphics */}
-        <div className="print-content">
-          <div className="print-header-info">
-            <div>
-              <h3>Billed To:</h3>
-              <p><strong>{client || 'Cash Customer'}</strong></p>
-              {selectedClientData && (
-                <>
-                  <p>Ph: {selectedClientData.phone}</p>
-                  <p>{selectedClientData.address}</p>
-                </>
+      {/* HIDDEN PRINT-ONLY INVOICE TEMPLATE        */}
+      {/* ========================================= */}
+      <div className="print-engine-wrapper" ref={printRef} style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
+        
+        {paginatedItems.map((pageChunk, pageIndex) => (
+          
+          <div key={pageIndex} className="print-page" style={{ position: 'relative', width: '210mm', height: '297mm', backgroundColor: 'white', overflow: 'hidden', pageBreakAfter: 'always' }}>
+            <img src="/letterhead.png" alt="Letterhead" className="print-background" />
+            
+            <div className="print-content">
+              {/* 1. Only show the Billed To info on Page 1 (Index 0) */}
+              {pageIndex === 0 && (
+                <div className="print-header-info">
+                  <div>
+                    <h3>Billed To:</h3>
+                    <p><strong>{client || 'Cash Customer'}</strong></p>
+                    {selectedClientData && (
+                      <>
+                        <p>Ph: {selectedClientData.phone}</p>
+                        <p>{selectedClientData.address}</p>
+                      </>
+                    )}
+                  </div>
+                  <div className="print-meta">
+                    <p><strong>Invoice No:</strong> {invoiceNo || 'Draft'}</p>
+                    <p><strong>Date:</strong> {formatDateToDDMMYYYY(date)}</p>
+                    <p><strong>Batch:</strong> {batch}</p>
+                  </div>
+                </div>
               )}
-            </div>
-            <div className="print-meta">
-              <p><strong>Invoice No:</strong> {invoiceNo || 'Draft'}</p>
-              <p><strong>Date:</strong> {formatDateToDDMMYYYY(date)}</p>
-              <p><strong>Batch:</strong> {batch}</p>
+
+              {/* 2. The Table (Stamps on every page, containing just that page's chunk) */}
+              <table className="print-table">
+                <thead>
+                  <tr>
+                    <th>Description</th>
+                    <th>Qty</th>
+                    <th>Total Count</th>
+                    <th>Rate</th>
+                    <th>Discount</th>
+                    <th>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageChunk.map(item => (
+                    <tr key={item.id}>
+                      <td>{item.desc || 'Item'}</td>
+                      <td>{formatCount(item.qty)} {item.unit}</td>
+                      <td>{formatCount(item.totalCount)}</td>
+                      <td>₹{formatINR(item.price)}</td>
+                      <td>₹{formatINR(item.discount)}</td>
+                      <td>₹{formatINR(item.subtotal)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {pageIndex === paginatedItems.length - 1 && (
+                <div className="print-totals">
+                  
+                  {/* 1. BANK DETAILS (Moved to be BEFORE totals) */}
+                  <div className="print-bank-details">
+                    <div className="bank-row">
+                      <strong>Bank:</strong>
+                      <span>Kotak Mahindra Bank</span>
+                    </div>
+                    <div className="bank-row">
+                      <strong>Branch:</strong>
+                      <span>Rajkot-kalavad Road</span>
+                    </div>
+                    <div className="bank-row">
+                      <strong>IFSC ID:</strong>
+                      <span>KKBK0002794</span>
+                    </div>
+                    <div className="bank-row">
+                      <strong>Account No:</strong>
+                      <span>8000089000</span>
+                    </div>
+                    <div className="bank-row">
+                      <strong>UPI ID:</strong>
+                      <span>urbaneggs@kotak</span>
+                    </div>
+                  </div>
+
+                  {/* 2. THE TOTALS BLOCK */}
+                  <div className="print-totals-numbers">
+                    <p><strong>Grand Total:</strong> ₹{formatINR(grandTotal)}</p>
+                    <p><strong>Amount Paid:</strong> ₹{formatINR(numericPaidAmount + numericAdvanceApplied)} ({paymentMode})</p>
+                    <p><strong>Balance Due:</strong> ₹{formatINR(balanceDue)}</p>
+                  </div>
+                </div>
+              )} 
             </div>
           </div>
-
-<table className="print-table">
-            <thead>
-              <tr>
-                <th>Description</th>
-                <th>Qty</th>
-                <th>Total Count</th>
-                <th>Rate</th>
-                <th>Discount</th>
-                <th>Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map(item => (
-                <tr key={item.id}>
-                  <td>{item.desc || 'Item'}</td>
-                  <td>{formatCount(item.qty)} {item.unit}</td>
-                  <td>{formatCount(item.totalCount)}</td>
-                  <td>₹{formatINR(item.price)}</td>
-                  <td>₹{formatINR(item.discount)}</td>
-                  <td>₹{formatINR(item.subtotal)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <div className="print-totals">
-            <p><strong>Grand Total:</strong> ₹{formatINR(grandTotal)}</p>
-            <p><strong>Amount Paid:</strong> ₹{formatINR(numericPaidAmount + numericAdvanceApplied)} ({paymentMode})</p>
-            <p><strong>Balance Due:</strong> ₹{formatINR(balanceDue)}</p>
-          </div>
-        </div>
+        ))}
       </div>
     </div>
   );

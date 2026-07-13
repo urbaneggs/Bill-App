@@ -487,19 +487,34 @@ body {
 /* Strip default browser margins to tighten the Billed To text */
 .print-header-info h3 {
   margin-top: 0;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 
 .print-header-info p {
-  margin: 4px 0; 
+  margin: 2px 0; 
 }
 
 .print-totals {
-  margin-top: 30px;          /* Adds some breathing room below the table */
-  display: flex;             /* Turns on flexbox layout */
-  flex-direction: column;    /* Stacks your <p> tags vertically */
-  align-items: flex-end;     /* Pushes the entire stack to the right edge */
-  text-align: right;         /* Ensures the text itself aligns to the right */
+  margin-top: 30px; 
+  display: flex; 
+  flex-direction: row; 
+  align-items: flex-start; 
+  
+  /* 1. Push EVERYTHING to the right side of the page */
+  justify-content: flex-end; 
+  
+  /* 2. Control the exact distance between the bank details and the totals */
+  gap: 90px; 
+}
+
+.print-bank-details {
+  /* 3. Strip out the old auto-margins so it obeys the flex layout */
+  margin: 0; 
+  text-align: left; 
+}
+
+.print-totals-numbers {
+  text-align: right; 
 }
 
 .print-totals p {
@@ -507,56 +522,96 @@ body {
   font-size: 16px; 
 }
 
+.bank-row {
+  display: flex;
+  gap: 8px; /* Creates the perfect space between the colon and the value */
+  margin: 4px 0; /* Vertical spacing between each line */
+}
+
+.bank-row strong {
+  white-space: nowrap; /* Keeps labels like 'Account No:' from breaking in half */
+}
+
 /* ========================================= */
 /* PHYSICAL PRINT ENGINE (Ctrl+P)            */
 /* ========================================= */
 @media print {
-  /* 1. Nuke the default browser margins to stop the 2nd page */
+  /* 1. Nuke default browser margins */
   @page {
     margin: 0mm; 
     size: A4 portrait;
   }
 
-  /* 2. Hide the Dashboard UI completely */
+  /* 2. Force the browser to print background graphics/colors */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* 3. Hide the Dashboard UI completely */
   .header, .meta-grid, .table-responsive-wrapper, .btn-add-row, .ledger-section, .action-buttons-container {
     display: none !important;
   }
 
-  /* 3. Strip backgrounds so the image can breathe */
+  /* 4. Strip base backgrounds */
   body, html {
     margin: 0 !important;
     padding: 0 !important;
-    background-color: transparent !important; 
+    background-color: white !important; 
   }
 
-  /* 4. Pull the invoice onto the page and lock it to 1 page */
-  .print-only-invoice {
-    position: absolute !important; 
+  /* 5. Pull the new wrapper onto the screen */
+  .print-engine-wrapper {
+    position: absolute !important; /* This is the critical change! */
     top: 0 !important;
     left: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
     width: 100% !important;
-    height: 100% !important; 
-    background-color: transparent !important; /* CRITICAL: Removes the white wall */
-    overflow: hidden !important; /* Chops off anything trying to spawn page 2 */
+    height: auto !important; 
   }
 
-  /* 5. Keep the letterhead in the background, but NOT behind the div */
+  /* 6. Format each individual page and FORCE the printer to split them */
+  .print-page {
+    position: relative !important;
+    width: 210mm !important;
+    height: 297mm !important;
+    overflow: hidden !important;
+    background-color: white !important;
+    /* This is the magic line that forces the physical printer to start a new page */
+    page-break-after: always !important; 
+    break-after: page !important;
+  }
+
+  /* 7. Stop the printer from spitting out a blank page at the very end */
+  .print-page:last-child {
+    page-break-after: auto !important;
+    break-after: auto !important;
+  }
+
+  /* 8. Keep the letterhead locked in place */
   .print-background {
     position: absolute !important;
     top: 0 !important;
     left: 0 !important;
     width: 100% !important;
     height: 100% !important; 
-    
     object-fit: fill !important;
-    
     z-index: 0 !important; 
   }
 
-  /* 6. Push the text to the front */
+  /* 9. Push the text above the graphic */
   .print-content {
     position: relative !important;
-    z-index: 1 !important; /* Ensure text sits on top of the image */
+    z-index: 1 !important; 
+  }
+
+  /* Strip the dashboard container padding in print mode */
+  .dashboard-container {
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
   }
 }
 
