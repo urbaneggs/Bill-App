@@ -568,7 +568,7 @@ const handleAmountPaidChange = (e) => {
               <p><strong>{client || 'Cash Customer'}</strong></p>
               {selectedClientData && (
                 <>
-                  <p>{selectedClientData.phone}</p>
+                  <p>Ph: {selectedClientData.phone}</p>
                   <p>{selectedClientData.address}</p>
                 </>
               )}

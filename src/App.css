@@ -468,6 +468,30 @@ body {
   display: flex;
   justify-content: space-between;
   margin-bottom: 20px;
+  gap: 20px; /* Adds a safe buffer between the address and the meta block */
+}
+/* 1. Restrict the Billed To side so long addresses are forced to wrap naturally */
+.print-header-info > div:first-child {
+  max-width: 40%;
+}
+
+/* 2. Protect the Meta Block so Invoice No has enough room */
+.print-meta {
+  min-width: 200px; 
+}
+
+/* 3. Force the text inside the Meta Block to stay on single lines */
+.print-meta p {
+  white-space: nowrap; 
+}
+/* Strip default browser margins to tighten the Billed To text */
+.print-header-info h3 {
+  margin-top: 0;
+  margin-bottom: 2px;
+}
+
+.print-header-info p {
+  margin: 4px 0; 
 }
 
 .print-totals {
