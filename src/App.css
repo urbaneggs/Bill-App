@@ -964,3 +964,74 @@ body {
     font-size: 1.2em;
   }
 }
+
+/* ========================================= */
+/* APP LOGIN SCREEN                          */
+/* ========================================= */
+
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: #f4f6f8;
+}
+
+.login-box {
+  background: white;
+  padding: 40px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.05);
+  text-align: center;
+  width: 100%;
+  max-width: 400px;
+  border-top: 5px solid #FFCC00; /* Urban Eggs Gold */
+}
+
+.login-logo {
+  max-width: 150px;
+  margin-bottom: 20px;
+}
+
+.login-box h2 {
+  margin-top: 0;
+  color: #0A2342; /* Urban Eggs Blue */
+  margin-bottom: 25px;
+  font-size: 1.4rem;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.login-input {
+  padding: 12px 15px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.login-input:focus {
+  border-color: #FFCC00;
+  box-shadow: 0 0 0 3px rgba(255, 204, 0, 0.2);
+}
+
+.btn-login {
+  background-color: #0A2342; /* Urban Eggs Blue */
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 1.05rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-login:hover {
+  background-color: #113663;
+}
