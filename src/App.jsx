@@ -86,6 +86,8 @@ export default function App() {
     try {
       const response = await fetch(SCRIPT_URL, {
         method: 'POST',
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        redirect: "follow",
         body: JSON.stringify({ action: 'getInitialData' }),
       });
       const data = await response.json();
@@ -136,7 +138,12 @@ export default function App() {
     }
     try {
       const payload = { action: 'addClient', name: newClientData.name.trim(), phone: newClientData.phone.trim(), address: newClientData.address.trim(), notes: newClientData.notes.trim() };
-      const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+      const response = await fetch(SCRIPT_URL, { 
+        method: 'POST', 
+        headers: { "Content-Type": "text/plain;charset=utf-8" }, 
+        redirect: "follow", 
+        body: JSON.stringify(payload) 
+      });
       const result = await response.json();
       if (result.success) {
         alert(`Success! ${newClientData.name} has been added to your Clients database.`);
@@ -155,7 +162,12 @@ export default function App() {
     }
     try {
       const payload = { action: 'editClient', name: editClientData.name, phone: editClientData.phone.trim(), address: editClientData.address.trim(), notes: editClientData.notes.trim() };
-      const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+      const response = await fetch(SCRIPT_URL, { 
+        method: 'POST', 
+        headers: { "Content-Type": "text/plain;charset=utf-8" }, 
+        redirect: "follow", 
+        body: JSON.stringify(payload) 
+      });
       const result = await response.json();
       if (result.success) {
         alert(`Success! ${editClientData.name}'s profile has been updated.`);
@@ -206,6 +218,8 @@ export default function App() {
     try {
       const response = await fetch(SCRIPT_URL, {
         method: 'POST',
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        redirect: "follow",
         body: JSON.stringify({ action: 'searchInvoice', type: type, query: query })
       });
       const data = await response.json();
@@ -320,7 +334,12 @@ export default function App() {
     if (num > 0 && client && advanceNo) {
       const payload = { action: 'logAdvance', date: new Date().toISOString().split('T')[0], advNo: advanceNo, client: client, amount: num, payMode: advancePayMode };
       try {
-        const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+        const response = await fetch(SCRIPT_URL, { 
+          method: 'POST', 
+          headers: { "Content-Type": "text/plain;charset=utf-8" }, 
+          redirect: "follow", 
+          body: JSON.stringify(payload) 
+        });
         const result = await response.json();
         if (result.success) {
           alert(`Success! Advance ${advanceNo} for ₹${formatINR(num)} added to the Ledger.`);
@@ -338,7 +357,12 @@ export default function App() {
     if (num > 0 && client) {
       const payload = { action: 'payDebt', date: new Date().toISOString().split('T')[0], client: client, amount: num, payMode: advancePayMode, advNo: advanceNo };
       try {
-        const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+        const response = await fetch(SCRIPT_URL, { 
+          method: 'POST', 
+          headers: { "Content-Type": "text/plain;charset=utf-8" }, 
+          redirect: "follow", 
+          body: JSON.stringify(payload) 
+        });
         const result = await response.json();
         if (result.success) {
           let msg = `Success! Applied ₹${formatINR(result.paidToDebt)} to Pending Invoices.`;
@@ -346,7 +370,7 @@ export default function App() {
           alert(msg);
           fetchInitialData(); 
         } else {
-          alert(result.message); // Displays the Insufficient Balance error
+          alert(result.message); 
         }
       } catch (error) { alert("Connection error."); }
     }
@@ -442,7 +466,12 @@ export default function App() {
     };
 
     try {
-      const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+      const response = await fetch(SCRIPT_URL, { 
+        method: 'POST', 
+        headers: { "Content-Type": "text/plain;charset=utf-8" }, 
+        redirect: "follow", 
+        body: JSON.stringify(payload) 
+      });
       const result = await response.json();
       if (!result.success) alert(`Save failed: ${result.message}`);
       return result.success; 
@@ -496,7 +525,7 @@ export default function App() {
   };
 
   const handleReprintOnly = async () => {
-    await new Promise((resolve) => setTimeout(resolve, 750));
+    await new Promise((resolve) => setTimeout(resolve, 750)); 
     await generatePDFDocument();
   };
 
@@ -523,10 +552,11 @@ export default function App() {
 
   return (
     <div className="dashboard-container">
+      <img src="/letterhead.png" alt="preload" style={{ display: 'none' }} />
+      
       <div className="header">
-        <img src="/logo.png" alt="Urban Eggs Logo" className="header-logo" />
+        <img src="/logo.png" alt="Urban Eggs Logo" className="header-logo" onClick={() => window.location.reload()} style={{ cursor: 'pointer' }} title="Refresh Dashboard" />
         <h1>Urban Eggs - Dashboard</h1>
-        <img src="/letterhead.png" alt="preload" style={{ display: 'none' }} />
         <div className="header-spacer"></div>
       </div>
 
@@ -645,45 +675,65 @@ export default function App() {
         </div>
       </div>
 
-      <div className="table-responsive-wrapper" style={{ pointerEvents: (isViewingPast && !isUnlocked) ? 'none' : 'auto', opacity: (isViewingPast && !isUnlocked) ? 0.7 : 1 }}>
-        <table className="item-table">
-          <thead>
-            <tr>
-              <th style={{ width: '35%' }}>Description</th>
-              <th style={{ width: '10%' }}>Qty</th>
-              <th style={{ width: '10%' }}>Unit</th>
-              <th style={{ width: '10%' }}>Total Count</th>
-              <th style={{ width: '10%' }}>Unit Cost (₹)</th>
-              <th style={{ width: '10%' }}>Discount (₹)</th>
-              <th style={{ width: '10%' }}>Subtotal (₹)</th>
-              <th style={{ width: '5%' }}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <tr key={item.id}>
-                <td><input type="text" value={item.desc} onChange={(e) => handleInputChange(item.id, 'desc', e.target.value)} /></td>
-                <td><input type="text" inputMode="decimal" value={item.qty === 0 ? '' : item.qty} onFocus={(e) => e.target.select()} onChange={(e) => handleInputChange(item.id, 'qty', e.target.value)} /></td>
-                <td>
-                  <select value={item.unit} onChange={(e) => handleInputChange(item.id, 'unit', e.target.value)}>
-                    <option value="Trays">Trays</option>
-                    <option value="Birds">Birds</option>
-                    <option value="Loads">Load</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </td>
-                <td>{item.totalCount}</td>
-                <td><input type="text" inputMode="decimal" value={item.price === 0 ? '' : item.price} onFocus={(e) => e.target.select()} onChange={(e) => handleInputChange(item.id, 'price', e.target.value)} /></td>
-                <td><input type="text" inputMode="decimal" value={item.discount === 0 ? '' : item.discount} onFocus={(e) => e.target.select()} onChange={(e) => handleInputChange(item.id, 'discount', e.target.value)} /></td>
-                <td><strong>{item.subtotal.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</strong></td>
-                <td><span className="btn-remove" onClick={() => removeRow(item.id)}>×</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {/* ========================================= */}
+      {/* NEW MODERN CSS GRID INVENTORY CARDS       */}
+      {/* ========================================= */}
+      <div className="inventory-container" style={{ pointerEvents: (isViewingPast && !isUnlocked) ? 'none' : 'auto', opacity: (isViewingPast && !isUnlocked) ? 0.7 : 1 }}>
+        <div className="inventory-list">
+          
+          {/* Desktop Header Row */}
+          <div className="inventory-header">
+            <div>Description</div>
+            <div>Qty</div>
+            <div>Unit</div>
+            <div>Total Count</div>
+            <div>Unit Cost (₹)</div>
+            <div>Discount (₹)</div>
+            <div>Subtotal</div>
+            <div></div>
+          </div>
+          
+          {/* Mapped Item Rows / Cards */}
+          {items.map((item) => (
+            <div key={item.id} className="inventory-row">
+              <div data-label="Description">
+                <input type="text" className="smart-field" value={item.desc} onChange={(e) => handleInputChange(item.id, 'desc', e.target.value)} placeholder="Item description" />
+              </div>
+              <div data-label="Qty">
+                <input type="text" className="smart-field" inputMode="decimal" value={item.qty === 0 ? '' : item.qty} onFocus={(e) => e.target.select()} onChange={(e) => handleInputChange(item.id, 'qty', e.target.value)} placeholder="0" />
+              </div>
+              <div data-label="Unit">
+                <select className="smart-field" style={{ padding: '8px' }} value={item.unit} onChange={(e) => handleInputChange(item.id, 'unit', e.target.value)}>
+                  <option value="Trays">Trays</option>
+                  <option value="Birds">Birds</option>
+                  <option value="Loads">Load</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div data-label="Total Count" style={{ display: 'flex', alignItems: 'center', paddingLeft: '5px' }}>
+                {item.totalCount}
+              </div>
+              <div data-label="Unit Cost (₹)">
+                <input type="text" className="smart-field" inputMode="decimal" value={item.price === 0 ? '' : item.price} onFocus={(e) => e.target.select()} onChange={(e) => handleInputChange(item.id, 'price', e.target.value)} placeholder="0.00" />
+              </div>
+              <div data-label="Discount (₹)">
+                <input type="text" className="smart-field" inputMode="decimal" value={item.discount === 0 ? '' : item.discount} onFocus={(e) => e.target.select()} onChange={(e) => handleInputChange(item.id, 'discount', e.target.value)} placeholder="0.00" />
+              </div>
+              <div data-label="Subtotal" className="inv-subtotal-wrapper" style={{ display: 'flex', alignItems: 'center' }}>
+                <span className="inv-subtotal">₹{formatINR(item.subtotal)}</span>
+              </div>
+              <div className="remove-btn-wrapper" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                <span className="btn-remove-modern" title="Remove Item" onClick={() => removeRow(item.id)}>×</span>
+              </div>
+            </div>
+          ))}
+        </div>
 
-      <button className="btn-add-row" onClick={addRow} disabled={isViewingPast && !isUnlocked}>+ Add Item</button>
+        {/* Modern Green Pill Button */}
+        <button className="btn-add-item-modern" onClick={addRow} disabled={isViewingPast && !isUnlocked}>
+          + Add Item
+        </button>
+      </div>
 
       <div className="ledger-section" style={{ pointerEvents: (isViewingPast && !isUnlocked) ? 'none' : 'auto', opacity: (isViewingPast && !isUnlocked) ? 0.7 : 1 }}>
         
@@ -798,10 +848,10 @@ export default function App() {
           <>
             {isViewingPast && <button className="btn-secondary" onClick={handleClearSearch} style={{ marginRight: 'auto' }}>❌ Cancel Edit</button>}
             <button className="btn-save-only" onClick={handleSaveOnly}>
-              {isViewingPast ? '💾 Update Master Data' : '💾 Save Only'}
+              {isViewingPast ? <><span style={{ filter: 'grayscale(100%)' }}>💾</span> Update Master Data</> : <><span style={{ filter: 'grayscale(100%)' }}>💾</span> Save Only</>}
             </button>
             <button className="btn-generate-pdf" onClick={handleGeneratePDF}>
-              {isViewingPast ? '🖨️ Update Master & PDF' : '🖨️ Generate PDF & Save'}
+             {isViewingPast ? <><span style={{ filter: 'grayscale(100%)' }}>🖨️</span> Update Master & PDF</> : <><span style={{ filter: 'grayscale(100%)' }}>🖨️</span> Generate PDF & Save</>}
             </button>
           </>
         )}
@@ -1002,7 +1052,7 @@ export default function App() {
 
                   <div className="print-totals-numbers">
                     <p><strong>Grand Total:</strong> ₹{formatINR(historicalLedger ? historicalLedger.grandTotal : grandTotal)}</p>
-    
+                    
                     <p><strong>Amount Paid:</strong> ₹{formatINR(historicalLedger ? (historicalLedger.grandTotal - historicalLedger.balance) : (numericPaidAmount + numericAdvanceApplied))}</p>
                     
                     <p><strong>Balance Due:</strong> ₹{formatINR(historicalLedger ? historicalLedger.balance : balanceDue)}</p>

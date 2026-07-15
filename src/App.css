@@ -743,6 +743,14 @@ body {
   cursor: pointer;
 }
 
+.modal-buttons button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
 .btn-modal-unlock { background-color: #d32f2f; color: white; }
 .btn-modal-cancel { background-color: #e0e0e0; color: #333; }
 
@@ -773,5 +781,186 @@ body {
   .print-page {
     page-break-after: always;
     box-shadow: none !important; /* Removes UI shadows on physical paper */
+  }
+}
+
+/* ========================================= */
+/* UNIFIED INVENTORY GRID                    */
+/* ========================================= */
+
+.inventory-container {
+  width: 100%;
+  margin-top: 20px;
+  margin-bottom: 20px;
+}
+
+/* 1. The Unified Seamless Box */
+.inventory-list {
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden; /* Keeps the outer corners rounded while the inside merges */
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  margin-bottom: 20px;
+}
+
+/* 2. The Grey Header */
+.inventory-header {
+  display: grid;
+  grid-template-columns: 2.5fr 1fr 1.2fr 1fr 1fr 1fr 1.2fr 40px;
+  gap: 10px;
+  padding: 12px 15px;
+  background: #f8f9fa; /* The grey background */
+  border-bottom: 2px solid #e0e0e0; /* Stronger line to separate header from inputs */
+  font-weight: 600;
+  color: #555;
+  font-size: 0.85em;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  align-items: center;
+}
+
+/* 3. The White Input Rows */
+.inventory-row {
+  display: grid;
+  grid-template-columns: 2.5fr 1fr 1.2fr 1fr 1fr 1fr 1.2fr 40px;
+  gap: 10px;
+  align-items: center;
+  background: #ffffff; /* White background */
+  padding: 10px 15px;
+  border-bottom: 1px solid #eeeeee; /* Soft line between individual items */
+  transition: background-color 0.2s ease;
+}
+
+/* Removes the bottom line from the very last item so it sits flush in the box */
+.inventory-row:last-child {
+  border-bottom: none;
+}
+
+.inventory-row:hover {
+  background-color: #fafafa;
+}
+
+/* 4. Forcing Inputs and Selects to be identical sizes */
+.inventory-row input.smart-field,
+.inventory-row select.smart-field {
+  width: 100%;
+  height: 38px; /* This forces the inputs and the dropdown to be the EXACT same height */
+  padding: 8px 12px;
+  margin: 0;
+  box-sizing: border-box;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-family: inherit;
+  background-color: #fff;
+}
+
+.inv-subtotal {
+  font-weight: 700;
+  font-size: 1.05em;
+  color: #333;
+}
+
+.btn-remove-modern {
+  cursor: pointer;
+  color: #d32f2f;
+  font-weight: bold;
+  font-size: 1.5em;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.btn-remove-modern:hover {
+  background-color: #ffebee;
+}
+
+/* Modern Add Item Button (Urban Eggs Exact Brand Colors) */
+.btn-add-item-modern {
+  background-color: #FFCC00; /* Bright Logo Gold/Yellow */
+  color: #000000; /* Pure Black text and plus sign */
+  border: none;
+  padding: 12px 24px;
+  border-radius: 24px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 700;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 6px rgba(255, 204, 0, 0.3);
+}
+
+.btn-add-item-modern:hover {
+  background-color: #E6B800; /* Slightly deeper gold on hover */
+  transform: translateY(-2px);
+  box-shadow: 0 6px 8px rgba(255, 204, 0, 0.4);
+}
+
+.btn-add-item-modern:disabled {
+  background-color: #FFE680; /* Faded yellow for disabled state */
+  color: #555555;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Mobile Responsive Override */
+@media (max-width: 768px) {
+  .inventory-header {
+    display: none; /* Hides the top grey bar on mobile */
+  }
+  
+  .inventory-row {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    padding: 20px;
+    /* Re-adds a thicker border on mobile so the stacked items don't bleed together */
+    border-bottom: 4px solid #f0f0f0; 
+  }
+
+  .inventory-row > div {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .inventory-row > div::before {
+    content: attr(data-label);
+    font-size: 0.75em;
+    color: #666;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+
+  .inv-subtotal-wrapper {
+    flex-direction: row !important;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px dashed #ccc;
+    padding-top: 15px;
+    margin-top: 5px;
+  }
+
+  .remove-btn-wrapper {
+    position: absolute;
+    right: 15px;
+    margin-top: -10px;
+    width: auto !important;
+  }
+  
+  .btn-remove-modern {
+    background-color: #ffebee;
+    font-size: 1.2em;
   }
 }
