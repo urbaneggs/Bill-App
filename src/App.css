@@ -382,6 +382,30 @@ body {
 .btn-add-funds:hover {
   background-color: #1b5e20;
 }
+
+.pay-debt-toggle {
+  cursor: pointer;
+  color: #d32f2f;
+  font-weight: bold;
+  margin-left: 4px;
+}
+.pay-debt-toggle:hover {
+  text-decoration: underline;
+}
+
+.btn-pay-debt {
+  background-color: #d32f2f;
+  color: white;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+.btn-pay-debt:hover {
+  background-color: #b71c1c;
+}
+
 /* --- ACTION BUTTONS --- */
 .action-buttons-container {
   display: flex;
@@ -414,6 +438,18 @@ body {
 
 .btn-save-only:hover, .btn-generate-pdf:hover {
   opacity: 0.85;
+}
+
+/* --- EDIT CLIENT TOGGLE --- */
+.edit-client-toggle {
+  cursor: pointer;
+  color: #1976d2;
+  font-weight: bold;
+  margin-left: 10px;
+  font-size: 0.9em;
+}
+.edit-client-toggle:hover {
+  text-decoration: underline;
 }
 
 /* ========================================= */
@@ -478,11 +514,14 @@ body {
 /* 2. Protect the Meta Block so Invoice No has enough room */
 .print-meta {
   min-width: 200px; 
+  max-width: 250px; /* Prevents long notes from bleeding off the page */
 }
 
 /* 3. Force the text inside the Meta Block to stay on single lines */
 .print-meta p {
-  white-space: nowrap; 
+  white-space: normal; /* Allows the Notes to wrap safely */
+  word-wrap: break-word;
+  margin: 2px 0;
 }
 /* Strip default browser margins to tighten the Billed To text */
 .print-header-info h3 {
@@ -633,4 +672,106 @@ body {
 .payment-input-box:disabled {
   background-color: #e9ecef;
   cursor: not-allowed;
+}
+
+/* --- SEARCH & LOCK SYSTEM STYLES --- */
+.btn-unlock {
+  background-color: #d32f2f;
+  color: white;
+  padding: 12px 24px;
+  font-size: 1.05rem;
+  font-weight: bold;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  transition: background-color 0.2s;
+}
+
+.btn-unlock:hover {
+  background-color: #b71c1c;
+}
+
+/* PIN Security Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.modal-content {
+  background: white;
+  padding: 30px;
+  border-radius: 8px;
+  text-align: center;
+  min-width: 300px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}
+
+.modal-content h3 {
+  margin-top: 0;
+  color: #d32f2f;
+}
+
+.modal-content input {
+  font-size: 24px;
+  text-align: center;
+  letter-spacing: 5px;
+  width: 100%;
+  padding: 10px;
+  margin: 15px 0;
+  border: 2px solid #ccc;
+  border-radius: 6px;
+  box-sizing: border-box;
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.modal-buttons button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.btn-modal-unlock { background-color: #d32f2f; color: white; }
+.btn-modal-cancel { background-color: #e0e0e0; color: #333; }
+
+/* ========================================= */
+/* CTRL+P NATIVE BROWSER PRINTING RULES      */
+/* ========================================= */
+@media print {
+  /* 1. Hide the entire interactive dashboard */
+  .dashboard-container > *:not(.print-engine-wrapper) {
+    display: none !important;
+  }
+
+  /* 2. Bring the hidden invoice template onto the screen */
+  .print-engine-wrapper {
+    position: relative !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+  }
+
+  /* 3. Force the browser to print background images and colors */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* 4. Ensure each invoice page breaks properly on physical paper */
+  .print-page {
+    page-break-after: always;
+    box-shadow: none !important; /* Removes UI shadows on physical paper */
+  }
 }
