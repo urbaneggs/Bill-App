@@ -649,9 +649,9 @@ export default function App() {
                     <div className="bank-row"><strong>UPI ID:</strong><span>urbaneggs@kotak</span></div>
                   </div>
                   <div className="print-totals-numbers">
-                    <p><strong>Grand Total:</strong> ₹{formatINR(historicalLedger ? historicalLedger.grandTotal : grandTotal)}</p>
-                    <p><strong>Amount Paid:</strong> ₹{formatINR(historicalLedger ? (historicalLedger.grandTotal - historicalLedger.balance) : (numericPaidAmount + numericAdvanceApplied))}</p>
-                    <p><strong>Balance Due:</strong> ₹{formatINR(historicalLedger ? historicalLedger.balance : balanceDue)}</p>
+                    <p><strong>Grand Total:</strong> ₹{formatINR(historicalLedger && !isUnlocked ? historicalLedger.grandTotal : grandTotal)}</p>
+                    <p><strong>Amount Paid:</strong> ₹{formatINR(historicalLedger && !isUnlocked ? (historicalLedger.grandTotal - historicalLedger.balance) : (numericPaidAmount + numericAdvanceApplied))}</p>
+                    <p><strong>Balance Due:</strong> ₹{formatINR(historicalLedger && !isUnlocked ? historicalLedger.balance : balanceDue)}</p>
                   </div>
                 </div>
               )} 
