@@ -439,7 +439,8 @@ export default function App() {
 
   return (
     <div className="dashboard-container">
-      <img src="/letterhead.png" alt="preload" style={{ display: 'none' }} />
+  <img src="/letterhead.png" alt="preload" style={{ display: 'none' }} />
+  <img src="/UrbanUPIQR.jpeg" alt="preload" style={{ display: 'none' }} />
       <div className="header">
         <img src="/logo.png" alt="Urban Eggs Logo" className="header-logo" onClick={() => window.location.reload()} style={{ cursor: 'pointer' }} title="Refresh Dashboard" />
         <h1>Urban Eggs - Dashboard</h1>
