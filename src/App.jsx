@@ -39,8 +39,8 @@ export default function App() {
   // --- APP SECURITY STATE ---
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginInput, setLoginInput] = useState('');
-  const [appPassword, setAppPassword] = useState(''); // Holds the login password in memory ONLY
-  const [validatedPin, setValidatedPin] = useState(''); // Holds the admin PIN in memory ONLY after validation
+  const [appPassword, setAppPassword] = useState(''); 
+  const [validatedPin, setValidatedPin] = useState(''); 
 
   // --- CONTROL PANEL STATE ---
   const [invoiceNo, setInvoiceNo] = useState('');
@@ -83,7 +83,7 @@ export default function App() {
   const [paymentMode, setPaymentMode] = useState('Cash');
   const [checkNumber, setCheckNumber] = useState('');
 
-  // --- DATA FETCHING (Now Secured) ---
+  // --- DATA FETCHING ---
   const fetchInitialData = async (passwordToTest) => {
     const currentPass = passwordToTest || appPassword;
     try {
@@ -95,9 +95,7 @@ export default function App() {
       });
       const data = await response.json();
       
-      if (data.success === false) {
-        return false; // Google rejected the password
-      }
+      if (data.success === false) return false; 
 
       if (data.clients) setClientsDb(data.clients);
       if (data.batches) {
@@ -116,11 +114,9 @@ export default function App() {
     }
   };
 
-  // --- LOGIN HANDLER ---
   const handleLogin = async (e) => {
     e.preventDefault();
     const isSuccess = await fetchInitialData(loginInput);
-    
     if (isSuccess) {
       setAppPassword(loginInput);
       setIsAuthenticated(true);
@@ -130,11 +126,12 @@ export default function App() {
     }
   };
 
-  // --- LOGIC CALCULATIONS ---
+  // --- LOGIC & ACCOUNT BALANCING ---
   const grandTotal = items.reduce((sum, item) => sum + item.subtotal, 0);
   const selectedClientData = clientsDb.find(c => c.name === client);
   const currentAdvance = selectedClientData ? selectedClientData.advance : 0;
   const currentPending = selectedClientData ? selectedClientData.pending : 0; 
+  
   const numericPaidAmount = parseFloat(paidAmount) || 0;
   const numericAdvanceApplied = parseFloat(advanceApplied) || 0;
   const totalDeductions = numericPaidAmount + numericAdvanceApplied;
@@ -144,6 +141,28 @@ export default function App() {
   if (totalDeductions > 0) {
     if (totalDeductions >= grandTotal) derivedStatus = 'Paid';
     else derivedStatus = 'Partial';
+  }
+
+  // ACCOUNT SUMMARY MATH (For Display on PDF and UI)
+  const displayPending = isViewingPast ? (historicalLedger?.snapshotPending || 0) : currentPending;
+  const displayAdvance = isViewingPast ? (historicalLedger?.snapshotAdvance || 0) : currentAdvance;
+  const effectiveBalanceDue = (isViewingPast && !isUnlocked) ? (historicalLedger?.balance || 0) : balanceDue;
+  const effectiveAdvanceApplied = (isViewingPast && !isUnlocked) ? (parseFloat(advanceApplied) || 0) : numericAdvanceApplied;
+
+  let netPending = displayPending + effectiveBalanceDue;
+  let netAdvance = displayAdvance - effectiveAdvanceApplied;
+  let finalAccountText = "Total Account Balance:";
+  let finalAccountValue = 0;
+
+  if (netPending > netAdvance) {
+    finalAccountText = "Total Account Balance:";
+    finalAccountValue = netPending - netAdvance;
+  } else if (netAdvance > netPending) {
+    finalAccountText = "Remaining Account Advance:";
+    finalAccountValue = netAdvance - netPending;
+  } else {
+    finalAccountText = "Total Account Balance:";
+    finalAccountValue = 0;
   }
 
   // --- SECURED DATABASE HANDLERS ---
@@ -212,8 +231,13 @@ export default function App() {
       });
       const data = await response.json();
       if (data.success && data.results && data.results.length > 0) {
-        if (data.results.length === 1) populateDashboard(data.results[0]);
-        else if (type === 'Date') { setAvailableInvoices(data.results); setIsInvoiceDropdown(true); setInvoiceNo(''); }
+        if (type === 'Invoice No') {
+          populateDashboard(data.results[0]);
+        } else {
+          setAvailableInvoices(data.results.reverse()); 
+          setIsInvoiceDropdown(true); 
+          setInvoiceNo(''); 
+        }
       } else {
         if (type === 'Invoice No') alert(`No invoices found for: ${query}`);
         else setIsInvoiceDropdown(false); 
@@ -237,17 +261,22 @@ export default function App() {
   const populateDashboard = (invoiceData) => {
     setInvoiceNo(invoiceData.invoiceNo); setDate(invoiceData.date || new Date().toISOString().split('T')[0]); setClient(invoiceData.client || '');
     const loadedBatch = invoiceData.batch || 'Batch 1'; setBatch(loadedBatch); setBatchOptions(prev => prev.includes(loadedBatch) ? prev : [...prev, loadedBatch]);
-    setHistoricalLedger({ grandTotal: invoiceData.grandTotal, paidStr: invoiceData.paid, balance: invoiceData.balance, status: invoiceData.status });
-    if (invoiceData.rawItems) setItems(JSON.parse(invoiceData.rawItems));
-    else setItems([{ id: Date.now(), desc: 'Past Item', qty: 0, unit: 'Trays', price: 0, discount: 0, subtotal: invoiceData.grandTotal || 0, totalCount: 0 }]);
+    
+    let histPending = 0; let histAdvance = 0;
     if (invoiceData.rawDetails) {
       const details = JSON.parse(invoiceData.rawDetails);
       setPaidAmount(details.paidAmount || ''); setAdvanceApplied(details.advanceApplied || ''); setPaymentMode(details.paymentMode || 'Cash'); setCheckNumber(details.checkNumber || '');
+      histPending = details.snapshotPending || 0;
+      histAdvance = details.snapshotAdvance || 0;
     } else { setPaidAmount(''); setAdvanceApplied(invoiceData.advanceUsed || ''); setPaymentMode(invoiceData.payMode || 'Cash'); }
+    
+    setHistoricalLedger({ grandTotal: invoiceData.grandTotal, paidStr: invoiceData.paid, balance: invoiceData.balance, status: invoiceData.status, snapshotPending: histPending, snapshotAdvance: histAdvance });
+    if (invoiceData.rawItems) setItems(JSON.parse(invoiceData.rawItems));
+    else setItems([{ id: Date.now(), desc: 'Past Item', qty: 0, unit: 'Trays', price: 0, discount: 0, subtotal: invoiceData.grandTotal || 0, totalCount: 0 }]);
+    
     setIsViewingPast(true); setIsUnlocked(false); setIsInvoiceDropdown(false);
   };
 
-  // --- SECURE BACKEND PIN VALIDATION ---
   const handleUnlockSubmit = async () => {
     try {
       const response = await fetch(SCRIPT_URL, {
@@ -256,17 +285,9 @@ export default function App() {
       });
       const data = await response.json();
       if (data.success) {
-        setIsUnlocked(true);
-        setValidatedPin(pinInput); // Store the valid PIN to authorize the actual save later
-        setShowPinPrompt(false);
-        setPinInput('');
-      } else {
-        alert("Incorrect PIN. Access Denied.");
-        setPinInput('');
-      }
-    } catch (error) {
-      alert("Connection error. Could not verify PIN.");
-    }
+        setIsUnlocked(true); setValidatedPin(pinInput); setShowPinPrompt(false); setPinInput('');
+      } else { alert("Incorrect PIN. Access Denied."); setPinInput(''); }
+    } catch (error) { alert("Connection error. Could not verify PIN."); }
   };
 
   const handleClearSearch = () => {
@@ -357,7 +378,12 @@ export default function App() {
       action: 'saveInvoice', password: appPassword, pin: validatedPin, invoiceNo, date, batch, client, totalTrays, totalEggs, totalBirds, grandTotal,
       paid: formattedPaidColumn, advanceUsed: numericAdvanceApplied, balance: balanceDue, status: derivedStatus, items: itemsSummary,
       payMode: finalPaymentMode, ledgerEntry: "Sale", isUpdate: isViewingPast && isUnlocked,
-      rawItems: JSON.stringify(validItems), rawDetails: JSON.stringify({ paidAmount, advanceApplied, paymentMode, checkNumber })
+      rawItems: JSON.stringify(validItems), 
+      rawDetails: JSON.stringify({ 
+        paidAmount, advanceApplied, paymentMode, checkNumber,
+        snapshotPending: displayPending,   // Secretly snaps the exact balance today
+        snapshotAdvance: displayAdvance    // Secretly snaps the exact advance today
+      })
     };
     try {
       const response = await fetch(SCRIPT_URL, { method: 'POST', headers: { "Content-Type": "text/plain;charset=utf-8" }, redirect: "follow", body: JSON.stringify(payload) });
@@ -386,7 +412,6 @@ export default function App() {
   const handleGeneratePDF = async () => { const isSaved = await submitInvoiceData(); if (!isSaved) return; await new Promise((resolve) => setTimeout(resolve, 750)); await generatePDFDocument(); resetDashboardAfterSave(); };
   const handleReprintOnly = async () => { await new Promise((resolve) => setTimeout(resolve, 750)); await generatePDFDocument(); };
 
-  // --- LOGIN SCREEN RENDER ---
   if (!isAuthenticated) {
     return (
       <div className="login-container">
@@ -394,10 +419,7 @@ export default function App() {
           <img src="/logo.png" alt="Urban Eggs" className="login-logo" />
           <h2>Authorized Access Only</h2>
           <form className="login-form" onSubmit={handleLogin}>
-            <input 
-              type="password" className="login-input" placeholder="Enter Access Password" 
-              value={loginInput} onChange={(e) => setLoginInput(e.target.value)} autoFocus
-            />
+            <input type="password" className="login-input" placeholder="Enter Access Password" value={loginInput} onChange={(e) => setLoginInput(e.target.value)} autoFocus />
             <button type="submit" className="btn-login">Unlock Database</button>
           </form>
         </div>
@@ -405,7 +427,6 @@ export default function App() {
     );
   }
 
-  // --- PAGINATION LOGIC ---
   const PAGE_1_MAX = 9; const PAGE_2_MAX = 12;
   const validItemsToPrint = items.filter(item => parseFloat(item.qty) > 0);
   if (validItemsToPrint.length === 0) validItemsToPrint.push({ id: 'blank', desc: '', qty: 0, unit: 'Trays', price: 0, discount: 0, subtotal: 0, totalCount: 0 });
@@ -416,7 +437,6 @@ export default function App() {
     while (remainingItems.length > 0) { paginatedItems.push(remainingItems.slice(0, PAGE_2_MAX)); remainingItems = remainingItems.slice(PAGE_2_MAX); }
   }
 
-  // --- DASHBOARD RENDER ---
   return (
     <div className="dashboard-container">
       <img src="/letterhead.png" alt="preload" style={{ display: 'none' }} />
@@ -432,7 +452,7 @@ export default function App() {
             {isInvoiceDropdown ? (
               <select className="smart-field" value={invoiceNo} onChange={handleInvoiceDropdownSelect} style={{ flex: 1 }}>
                 <option value="">-- Select Invoice --</option>
-                {availableInvoices.map(inv => ( <option key={inv.invoiceNo} value={inv.invoiceNo}>{inv.invoiceNo} - {inv.client}</option> ))}
+                {availableInvoices.map(inv => ( <option key={inv.invoiceNo} value={inv.invoiceNo}>{inv.invoiceNo} | {inv.date} | {inv.status}</option> ))}
                 <option value="NEW">➕ Create New Invoice</option>
               </select>
             ) : (
@@ -444,6 +464,7 @@ export default function App() {
           </div>
         </div>
         <div className="form-group"><label>Date</label><input type="date" value={date} onChange={handleDateChange} disabled={isViewingPast && !isUnlocked} /></div>
+        
         <div className="form-group">
           <label>Batch Number</label>
           <select value={batch} onChange={handleBatchChange} disabled={isViewingPast && !isUnlocked}>
@@ -452,6 +473,7 @@ export default function App() {
             <option value="NEW">➕ Create New Batch</option>
           </select>
         </div>
+
         <div className="form-group">
           <label>
             Client Name 
@@ -469,11 +491,24 @@ export default function App() {
               </span>
             )}
           </label>
-          <select value={client} disabled={isViewingPast && !isUnlocked} onChange={(e) => { const val = e.target.value; if (val === 'NEW') setShowAddClientModal(true); else { setClient(val); setShowAddFunds(false); setAdvanceApplied(''); }}}>
+          
+          <select value={client} disabled={isViewingPast && !isUnlocked} onChange={(e) => { 
+            const val = e.target.value; 
+            if (val === 'NEW') {
+              setShowAddClientModal(true); 
+            } else { 
+              setClient(val); 
+              setShowAddFunds(false); 
+              setAdvanceApplied(''); 
+              if (val) executeSearch('Client', val); 
+              else setIsInvoiceDropdown(false);  
+            }
+          }}>
             <option value="">-- Select Client --</option>
             {clientsDb.map((c) => ( <option key={c.name} value={c.name}>{c.name}</option> ))}
             <option value="NEW">➕ Add New Client</option>
           </select>
+
           {showAddFunds && !isViewingPast && (
             <div className="add-funds-popover">
               <input type="text" inputMode="decimal" className="smart-field" value={formatInputINR(fundsToAdd)} onChange={handleFundsInputChange} placeholder="Amount (₹)" />
@@ -485,6 +520,7 @@ export default function App() {
           )}
         </div>
       </div>
+      
       <div className="inventory-container" style={{ pointerEvents: (isViewingPast && !isUnlocked) ? 'none' : 'auto', opacity: (isViewingPast && !isUnlocked) ? 0.7 : 1 }}>
         <div className="inventory-list">
           <div className="inventory-header">
@@ -507,17 +543,18 @@ export default function App() {
         </div>
         <button className="btn-add-item-modern" onClick={addRow} disabled={isViewingPast && !isUnlocked}>+ Add Item</button>
       </div>
+
       <div className="ledger-section" style={{ pointerEvents: (isViewingPast && !isUnlocked) ? 'none' : 'auto', opacity: (isViewingPast && !isUnlocked) ? 0.7 : 1 }}>
         {isViewingPast && !isUnlocked ? (
           <div className="ledger-grid">
-            <div className="ledger-item"><span>Grand Total:</span><strong>₹{formatINR(historicalLedger?.grandTotal)}</strong></div>
+            <div className="ledger-item"><span>Grand Total (This Invoice):</span><strong>₹{formatINR(historicalLedger?.grandTotal)}</strong></div>
             <div className="ledger-item"><span>Amount Paid:</span><strong style={{ fontSize: '1rem', whiteSpace: 'pre-wrap' }}>{historicalLedger?.paidStr}</strong></div>
-            <div className="ledger-item"><span>Balance Due:</span><strong>₹{formatINR(historicalLedger?.balance)}</strong></div>
+            <div className="ledger-item"><span>Balance Due (This Invoice):</span><strong>₹{formatINR(historicalLedger?.balance)}</strong></div>
             <div className="ledger-item"><span>Status:</span><span className={`payment-status-badge status-${historicalLedger?.status?.toLowerCase()}`}>{historicalLedger?.status}</span></div>
           </div>
         ) : (
           <div className="ledger-grid">
-            <div className="ledger-item"><span>Grand Total:</span><strong>{grandTotal.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</strong></div>
+            <div className="ledger-item"><span>Grand Total (This Invoice):</span><strong>{grandTotal.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</strong></div>
             <div className="ledger-item"><span>Amount Paid (₹):</span><input type="text" className="smart-field payment-input-box" value={formatInputINR(paidAmount)} onChange={handleAmountPaidChange} placeholder="Amount (₹)" disabled={grandTotal <= 0 || (parseFloat(advanceApplied) || 0) >= grandTotal}/></div>
             <div className="ledger-item">
               <span>Payment Mode:</span>
@@ -527,11 +564,12 @@ export default function App() {
               {paymentMode === 'Cheque' && ( <input type="text" placeholder="Check No." className="check-number-input" value={checkNumber} onChange={(e) => setCheckNumber(e.target.value)} /> )}
             </div>
             <div className="ledger-item"><span>Advance Applied (₹):</span><input type="text" className="smart-field payment-input-box" value={formatInputINR(advanceApplied)} onChange={handleAdvanceAppliedChange} placeholder="Advance (₹)" disabled={grandTotal <= 0 || currentAdvance <= 0 || (parseFloat(paidAmount) || 0) >= grandTotal}/></div>
-            <div className="ledger-item"><span>Balance Due:</span><strong>{balanceDue.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</strong></div>
+            <div className="ledger-item"><span>Balance Due (This Invoice):</span><strong>{balanceDue.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</strong></div>
             <div className="ledger-item"><span>Status:</span><span className={`payment-status-badge status-${derivedStatus.toLowerCase()}`}>{derivedStatus}</span></div>
           </div>
         )}
       </div>
+
       <div className="action-buttons-container">
         {isViewingPast && !isUnlocked ? (
           historicalLedger?.status === 'Paid' ? (
@@ -639,22 +677,35 @@ export default function App() {
                   ))}
                 </tbody>
               </table>
-              {pageIndex === paginatedItems.length - 1 && (
+{pageIndex === paginatedItems.length - 1 && (
                 <div className="print-totals">
-                  <div className="print-bank-details">
-                    <div className="bank-row"><strong>Bank:</strong><span>Kotak Mahindra Bank</span></div>
-                    <div className="bank-row"><strong>Branch:</strong><span>Rajkot-kalavad Road</span></div>
-                    <div className="bank-row"><strong>IFSC ID:</strong><span>KKBK0002794</span></div>
-                    <div className="bank-row"><strong>Account No:</strong><span>8000089000</span></div>
-                    <div className="bank-row"><strong>UPI ID:</strong><span>urbaneggs@kotak</span></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                    <img src="/UrbanUPIQR.jpeg" alt="UPI QR" style={{ width: '85px', height: '85px', borderRadius: '4px', objectFit: 'contain' }} />
+                    <div className="print-bank-details">
+                      <div className="bank-row"><strong>Bank:</strong><span>Kotak Mahindra Bank</span></div>
+                      <div className="bank-row"><strong>Branch:</strong><span>Rajkot-kalavad Road</span></div>
+                      <div className="bank-row"><strong>IFSC:</strong><span>KKBK0002794</span></div>
+                      <div className="bank-row"><strong>A/C No:</strong><span>8000089000</span></div>
+                      <div className="bank-row"><strong>UPI ID:</strong><span>urbaneggs@kotak</span></div>
+                    </div>
                   </div>
                   <div className="print-totals-numbers">
-                    <p><strong>Grand Total:</strong> ₹{formatINR(historicalLedger && !isUnlocked ? historicalLedger.grandTotal : grandTotal)}</p>
+                    <p><strong>Grand Total (This Invoice):</strong> ₹{formatINR(historicalLedger && !isUnlocked ? historicalLedger.grandTotal : grandTotal)}</p>
                     <p><strong>Amount Paid:</strong> ₹{formatINR(historicalLedger && !isUnlocked ? (historicalLedger.grandTotal - historicalLedger.balance) : (numericPaidAmount + numericAdvanceApplied))}</p>
-                    <p><strong>Balance Due:</strong> ₹{formatINR(historicalLedger && !isUnlocked ? historicalLedger.balance : balanceDue)}</p>
+                    <p><strong>Balance Due (This Invoice):</strong> ₹{formatINR(effectiveBalanceDue)}</p>
+
+                    {/* NEW: DYNAMIC ACCOUNT SUMMARY SECTION */}
+                    {(displayPending > 0 || displayAdvance > 0) && (
+                      <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #666' }}>
+                        {displayPending > 0 && <p><strong>Previous Balance:</strong> ₹{formatINR(displayPending)}</p>}
+                        {displayAdvance > 0 && <p><strong>Previous Advance:</strong> ₹{formatINR(displayAdvance)}</p>}
+                        <p style={{ marginTop: '5px', fontSize: '15px' }}><strong>{finalAccountText}</strong> ₹{formatINR(finalAccountValue)}</p>
+                      </div>
+                    )}
+
                   </div>
                 </div>
-              )} 
+              )}
             </div>
           </div>
         ))}
