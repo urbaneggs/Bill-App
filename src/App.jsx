@@ -570,7 +570,7 @@ export default function App() {
           <div className="modal-content" style={{ minWidth: '350px' }}>
             <h3 style={{ marginTop: 0, color: '#2e7d32' }}>Add New Client</h3>
             <input type="text" placeholder="Client Name (Required)" value={newClientData.name} onChange={e => setNewClientData({...newClientData, name: e.target.value})} className="smart-field" style={{ width: '100%', marginBottom: '10px', boxSizing: 'border-box' }} />
-            <input type="text" inputMode="tel" placeholder="Phone Number (Required)" value={newClientData.phone} onChange={e => setNewClientData({...newClientData, phone: e.target.value})} className="smart-field" style={{ width: '100%', marginBottom: '10px', boxSizing: 'border-box' }} />
+            <input type="text" inputMode="numeric" placeholder="Phone Number (Required)" value={newClientData.phone} onChange={e => setNewClientData({...newClientData, phone: e.target.value})} className="smart-field" style={{ width: '100%', marginBottom: '10px', boxSizing: 'border-box' }} />
             <input type="text" placeholder="Address (Required)" value={newClientData.address} onChange={e => setNewClientData({...newClientData, address: e.target.value})} className="smart-field" style={{ width: '100%', marginBottom: '10px', boxSizing: 'border-box' }} />
             <input type="text" placeholder="Notes / PAN / GST (Optional)" value={newClientData.notes} onChange={e => setNewClientData({...newClientData, notes: e.target.value})} className="smart-field" style={{ width: '100%', marginBottom: '20px', boxSizing: 'border-box' }} />
             <div className="modal-buttons">
@@ -586,7 +586,7 @@ export default function App() {
           <div className="modal-content" style={{ minWidth: '350px' }}>
             <h3 style={{ marginTop: 0, color: '#1976d2' }}>Edit Client Profile</h3>
             <input type="text" value={editClientData.name} disabled={true} className="smart-field" style={{ width: '100%', marginBottom: '10px', boxSizing: 'border-box', backgroundColor: '#e9ecef', color: '#666', cursor: 'not-allowed' }} />
-            <input type="text" inputMode="tel" placeholder="Phone Number (Required)" value={editClientData.phone} onChange={e => setEditClientData({...editClientData, phone: e.target.value})} className="smart-field" style={{ width: '100%', marginBottom: '10px', boxSizing: 'border-box' }} />
+            <input type="text" inputMode="numeric" placeholder="Phone Number (Required)" value={editClientData.phone} onChange={e => setEditClientData({...editClientData, phone: e.target.value})} className="smart-field" style={{ width: '100%', marginBottom: '10px', boxSizing: 'border-box' }} />
             <input type="text" placeholder="Address (Required)" value={editClientData.address} onChange={e => setEditClientData({...editClientData, address: e.target.value})} className="smart-field" style={{ width: '100%', marginBottom: '10px', boxSizing: 'border-box' }} />
             <input type="text" placeholder="Notes / PAN / GST (Optional)" value={editClientData.notes} onChange={e => setEditClientData({...editClientData, notes: e.target.value})} className="smart-field" style={{ width: '100%', marginBottom: '20px', boxSizing: 'border-box' }} />
             <div className="modal-buttons">
