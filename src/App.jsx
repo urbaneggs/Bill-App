@@ -76,7 +76,7 @@ export default function App() {
   // --- INVENTORY TABLE STATE ---
   const [items, setItems] = useState([{ id: Date.now(), desc: '', qty: 0, unit: 'Trays', price: 0, discount: 0, subtotal: 0, totalCount: 0 }]);
 
-  // --- LIVE LEDGER STATE (NEW ROUND OFF ADDED) ---
+  // --- LIVE LEDGER STATE ---
   const [paidAmount, setPaidAmount] = useState(''); 
   const [advanceApplied, setAdvanceApplied] = useState('');
   const [roundOffAmount, setRoundOffAmount] = useState(''); 
@@ -113,7 +113,7 @@ export default function App() {
     else { alert("Incorrect Password or Database Error. Access Denied."); setLoginInput(''); }
   };
 
-  // --- LOGIC & ACCOUNT BALANCING (WITH ROUND OFF) ---
+  // --- LOGIC & ACCOUNT BALANCING ---
   const grandTotal = items.reduce((sum, item) => sum + item.subtotal, 0);
   const selectedClientData = clientsDb.find(c => c.name === client);
   const currentAdvance = selectedClientData ? selectedClientData.advance : 0;
@@ -229,7 +229,7 @@ export default function App() {
     if (invoiceData.rawDetails) {
       const details = JSON.parse(invoiceData.rawDetails);
       setPaidAmount(details.paidAmount || ''); setAdvanceApplied(details.advanceApplied || ''); 
-      setRoundOffAmount(details.roundOffAmount || ''); // Restores Round Off UI state
+      setRoundOffAmount(details.roundOffAmount || ''); 
       setPaymentMode(details.paymentMode || 'Cash'); setCheckNumber(details.checkNumber || '');
       histPending = details.snapshotPending || 0; histAdvance = details.snapshotAdvance || 0;
       histRoundOff = parseFloat(details.roundOffAmount) || 0;
@@ -304,7 +304,6 @@ export default function App() {
     setItems(newItems);
   };
 
-  // --- STRICT INPUT CAPPING ---
   const handleAmountPaidChange = (e) => {
     let safeVal = enforceTwoDecimals(e.target.value); if (safeVal === '') { setPaidAmount(''); return; }
     const numVal = parseFloat(safeVal) || 0; const maxApplicable = roundMath(grandTotal - (parseFloat(advanceApplied) || 0) - (parseFloat(roundOffAmount) || 0));
@@ -522,7 +521,7 @@ export default function App() {
         ) : (
           <div className="ledger-grid">
             <div className="ledger-item"><span>Grand Total (This Invoice):</span><strong>{grandTotal.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</strong></div>
-            <div className="ledger-item"><span>Amount Paid (₹):</span><input type="text" className="smart-field payment-input-box" value={formatInputINR(paidAmount)} onChange={handleAmountPaidChange} placeholder="Amount (₹)" disabled={grandTotal <= 0 || (parseFloat(advanceApplied) || 0) + (parseFloat(roundOffAmount) || 0) >= grandTotal}/></div>
+            <div className="ledger-item"><span>Amount Paid (₹):</span><input type="text" className="smart-field payment-input-box" inputMode="decimal" value={formatInputINR(paidAmount)} onChange={handleAmountPaidChange} placeholder="Amount (₹)" disabled={grandTotal <= 0 || (parseFloat(advanceApplied) || 0) + (parseFloat(roundOffAmount) || 0) >= grandTotal}/></div>
             <div className="ledger-item">
               <span>Payment Mode:</span>
               <select value={paymentMode} onChange={(e) => { setPaymentMode(e.target.value); if (e.target.value !== 'Cheque') setCheckNumber(''); }} className="payment-mode-select">
@@ -530,11 +529,8 @@ export default function App() {
               </select>
               {paymentMode === 'Cheque' && ( <input type="text" placeholder="Check No." className="check-number-input" value={checkNumber} onChange={(e) => setCheckNumber(e.target.value)} /> )}
             </div>
-            <div className="ledger-item"><span>Advance Applied (₹):</span><input type="text" className="smart-field payment-input-box" value={formatInputINR(advanceApplied)} onChange={handleAdvanceAppliedChange} placeholder="Advance (₹)" disabled={grandTotal <= 0 || currentAdvance <= 0 || (parseFloat(paidAmount) || 0) + (parseFloat(roundOffAmount) || 0) >= grandTotal}/></div>
-            
-            {/* NEW ROUND OFF INPUT */}
-            <div className="ledger-item"><span>Round Off (₹):</span><input type="text" className="smart-field payment-input-box" value={formatInputINR(roundOffAmount)} onChange={handleRoundOffChange} placeholder="Round Off (₹)" disabled={grandTotal <= 0 || (parseFloat(paidAmount) || 0) + (parseFloat(advanceApplied) || 0) >= grandTotal}/></div>
-            
+            <div className="ledger-item"><span>Advance Applied (₹):</span><input type="text" className="smart-field payment-input-box" inputMode="decimal" value={formatInputINR(advanceApplied)} onChange={handleAdvanceAppliedChange} placeholder="Advance (₹)" disabled={grandTotal <= 0 || currentAdvance <= 0 || (parseFloat(paidAmount) || 0) + (parseFloat(roundOffAmount) || 0) >= grandTotal}/></div>
+            <div className="ledger-item"><span>Round Off (₹):</span><input type="text" className="smart-field payment-input-box" inputMode="decimal" value={formatInputINR(roundOffAmount)} onChange={handleRoundOffChange} placeholder="Round Off (₹)" disabled={grandTotal <= 0 || (parseFloat(paidAmount) || 0) + (parseFloat(advanceApplied) || 0) >= grandTotal}/></div>
             <div className="ledger-item"><span>Balance Due (This Invoice):</span><strong>{balanceDue.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</strong></div>
             <div className="ledger-item"><span>Status:</span><span className={`payment-status-badge status-${derivedStatus.toLowerCase()}`}>{derivedStatus}</span></div>
           </div>
@@ -574,7 +570,7 @@ export default function App() {
           <div className="modal-content" style={{ minWidth: '350px' }}>
             <h3 style={{ marginTop: 0, color: '#2e7d32' }}>Add New Client</h3>
             <input type="text" placeholder="Client Name (Required)" value={newClientData.name} onChange={e => setNewClientData({...newClientData, name: e.target.value})} className="smart-field" style={{ width: '100%', marginBottom: '10px', boxSizing: 'border-box' }} />
-            <input type="text" placeholder="Phone Number (Required)" value={newClientData.phone} onChange={e => setNewClientData({...newClientData, phone: e.target.value})} className="smart-field" style={{ width: '100%', marginBottom: '10px', boxSizing: 'border-box' }} />
+            <input type="text" inputMode="tel" placeholder="Phone Number (Required)" value={newClientData.phone} onChange={e => setNewClientData({...newClientData, phone: e.target.value})} className="smart-field" style={{ width: '100%', marginBottom: '10px', boxSizing: 'border-box' }} />
             <input type="text" placeholder="Address (Required)" value={newClientData.address} onChange={e => setNewClientData({...newClientData, address: e.target.value})} className="smart-field" style={{ width: '100%', marginBottom: '10px', boxSizing: 'border-box' }} />
             <input type="text" placeholder="Notes / PAN / GST (Optional)" value={newClientData.notes} onChange={e => setNewClientData({...newClientData, notes: e.target.value})} className="smart-field" style={{ width: '100%', marginBottom: '20px', boxSizing: 'border-box' }} />
             <div className="modal-buttons">
@@ -590,7 +586,7 @@ export default function App() {
           <div className="modal-content" style={{ minWidth: '350px' }}>
             <h3 style={{ marginTop: 0, color: '#1976d2' }}>Edit Client Profile</h3>
             <input type="text" value={editClientData.name} disabled={true} className="smart-field" style={{ width: '100%', marginBottom: '10px', boxSizing: 'border-box', backgroundColor: '#e9ecef', color: '#666', cursor: 'not-allowed' }} />
-            <input type="text" placeholder="Phone Number (Required)" value={editClientData.phone} onChange={e => setEditClientData({...editClientData, phone: e.target.value})} className="smart-field" style={{ width: '100%', marginBottom: '10px', boxSizing: 'border-box' }} />
+            <input type="text" inputMode="tel" placeholder="Phone Number (Required)" value={editClientData.phone} onChange={e => setEditClientData({...editClientData, phone: e.target.value})} className="smart-field" style={{ width: '100%', marginBottom: '10px', boxSizing: 'border-box' }} />
             <input type="text" placeholder="Address (Required)" value={editClientData.address} onChange={e => setEditClientData({...editClientData, address: e.target.value})} className="smart-field" style={{ width: '100%', marginBottom: '10px', boxSizing: 'border-box' }} />
             <input type="text" placeholder="Notes / PAN / GST (Optional)" value={editClientData.notes} onChange={e => setEditClientData({...editClientData, notes: e.target.value})} className="smart-field" style={{ width: '100%', marginBottom: '20px', boxSizing: 'border-box' }} />
             <div className="modal-buttons">
@@ -606,7 +602,7 @@ export default function App() {
           <div className="modal-content">
             <h3>Security Verification</h3>
             <p>Please enter the Admin PIN to override and edit Invoice {invoiceNo}.</p>
-            <input type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)} maxLength={6} />
+            <input type="password" inputMode="numeric" pattern="[0-9]*" value={pinInput} onChange={(e) => setPinInput(e.target.value)} maxLength={6} />
             <div className="modal-buttons">
               <button className="btn-modal-unlock" onClick={handleUnlockSubmit}>Unlock Database</button>
               <button className="btn-modal-cancel" onClick={() => {setShowPinPrompt(false); setPinInput('');}}>Cancel</button>
@@ -664,7 +660,6 @@ export default function App() {
                     <p><strong>Grand Total (This Invoice):</strong> ₹{formatINR(historicalLedger && !isUnlocked ? historicalLedger.grandTotal : grandTotal)}</p>
                     <p><strong>Amount Paid:</strong> ₹{formatINR(historicalLedger && !isUnlocked ? (historicalLedger.grandTotal - historicalLedger.balance - (historicalLedger.roundOff||0)) : (numericPaidAmount + numericAdvanceApplied))}</p>
                     
-                    {/* NEW PDF OUTPUT FOR ROUND OFF */}
                     {displayRoundOff > 0 && (
                       <p style={{ color: '#d32f2f' }}><strong>Round Off:</strong> ₹{formatINR(displayRoundOff)}</p>
                     )}
