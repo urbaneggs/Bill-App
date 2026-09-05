@@ -143,7 +143,6 @@ export default function App() {
     else derivedStatus = 'Partial';
   }
 
-  // ACCOUNT SUMMARY MATH (For Display on PDF and UI)
   const displayPending = isViewingPast ? (historicalLedger?.snapshotPending || 0) : currentPending;
   const displayAdvance = isViewingPast ? (historicalLedger?.snapshotAdvance || 0) : currentAdvance;
   const effectiveBalanceDue = (isViewingPast && !isUnlocked) ? (historicalLedger?.balance || 0) : balanceDue;
@@ -236,7 +235,7 @@ export default function App() {
         } else {
           setAvailableInvoices(data.results.reverse()); 
           setIsInvoiceDropdown(true); 
-          setInvoiceNo(''); 
+          // FIX: We no longer erase your new invoice number when you pick a client!
         }
       } else {
         if (type === 'Invoice No') alert(`No invoices found for: ${query}`);
@@ -361,6 +360,12 @@ export default function App() {
   const resetDashboardAfterSave = () => { handleClearSearch(); fetchInitialData(); };
 
   const submitInvoiceData = async () => {
+    // FIX: Bulletproof guard rail to prevent blank invoice crashes
+    if (!invoiceNo || invoiceNo.toString().trim() === '') {
+      alert("System Error: Invoice Number is blank. Please select 'Create New Invoice' from the dropdown to continue.");
+      return false;
+    }
+
     const validItems = items.filter(i => parseFloat(i.qty) > 0);
     if (validItems.length === 0) { alert("Error: Cannot save empty invoice."); return false; }
     const itemsSummary = validItems.map(i => { const priceUnit = i.unit === 'Trays' ? 'Egg' : i.unit; return `${i.qty} ${i.unit} - ${i.desc || 'Item'} @ ₹${i.price}/${priceUnit} (Disc: ₹${i.discount})`; }).join(' | ');
@@ -381,8 +386,8 @@ export default function App() {
       rawItems: JSON.stringify(validItems), 
       rawDetails: JSON.stringify({ 
         paidAmount, advanceApplied, paymentMode, checkNumber,
-        snapshotPending: displayPending,   // Secretly snaps the exact balance today
-        snapshotAdvance: displayAdvance    // Secretly snaps the exact advance today
+        snapshotPending: displayPending,  
+        snapshotAdvance: displayAdvance   
       })
     };
     try {
@@ -439,8 +444,8 @@ export default function App() {
 
   return (
     <div className="dashboard-container">
-  <img src="/letterhead.png" alt="preload" style={{ display: 'none' }} />
-  <img src="/UrbanUPIQR.jpeg" alt="preload" style={{ display: 'none' }} />
+      <img src="/letterhead.png" alt="preload" style={{ display: 'none' }} />
+      <img src="/UrbanUPIQR.jpeg" alt="preload" style={{ display: 'none' }} />
       <div className="header">
         <img src="/logo.png" alt="Urban Eggs Logo" className="header-logo" onClick={() => window.location.reload()} style={{ cursor: 'pointer' }} title="Refresh Dashboard" />
         <h1>Urban Eggs - Dashboard</h1>
@@ -450,9 +455,10 @@ export default function App() {
         <div className="form-group">
           <label>Invoice Number <span style={{fontWeight: 'normal', fontSize: '11px', color: '#666', marginLeft: '5px'}}>(Press Enter to Search)</span></label>
           <div style={{ display: 'flex', gap: '5px' }}>
+            {/* FIX: The dropdown safely defaults to "NEW" without erasing your number */}
             {isInvoiceDropdown ? (
-              <select className="smart-field" value={invoiceNo} onChange={handleInvoiceDropdownSelect} style={{ flex: 1 }}>
-                <option value="">-- Select Invoice --</option>
+              <select className="smart-field" value={isViewingPast ? invoiceNo : "NEW"} onChange={handleInvoiceDropdownSelect} style={{ flex: 1 }}>
+                <option value="" disabled>-- Select Past Invoice --</option>
                 {availableInvoices.map(inv => ( <option key={inv.invoiceNo} value={inv.invoiceNo}>{inv.invoiceNo} | {inv.date} | {inv.status}</option> ))}
                 <option value="NEW">➕ Create New Invoice</option>
               </select>
@@ -678,7 +684,7 @@ export default function App() {
                   ))}
                 </tbody>
               </table>
-{pageIndex === paginatedItems.length - 1 && (
+              {pageIndex === paginatedItems.length - 1 && (
                 <div className="print-totals">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                     <img src="/UrbanUPIQR.jpeg" alt="UPI QR" style={{ width: '85px', height: '85px', borderRadius: '4px', objectFit: 'contain' }} />
@@ -694,8 +700,7 @@ export default function App() {
                     <p><strong>Grand Total (This Invoice):</strong> ₹{formatINR(historicalLedger && !isUnlocked ? historicalLedger.grandTotal : grandTotal)}</p>
                     <p><strong>Amount Paid:</strong> ₹{formatINR(historicalLedger && !isUnlocked ? (historicalLedger.grandTotal - historicalLedger.balance) : (numericPaidAmount + numericAdvanceApplied))}</p>
                     <p><strong>Balance Due (This Invoice):</strong> ₹{formatINR(effectiveBalanceDue)}</p>
-
-                    {/* NEW: DYNAMIC ACCOUNT SUMMARY SECTION */}
+                    
                     {(displayPending > 0 || displayAdvance > 0) && (
                       <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #666' }}>
                         {displayPending > 0 && <p><strong>Previous Balance:</strong> ₹{formatINR(displayPending)}</p>}
@@ -703,10 +708,9 @@ export default function App() {
                         <p style={{ marginTop: '5px', fontSize: '15px' }}><strong>{finalAccountText}</strong> ₹{formatINR(finalAccountValue)}</p>
                       </div>
                     )}
-
                   </div>
                 </div>
-              )}
+              )} 
             </div>
           </div>
         ))}
