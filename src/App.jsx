@@ -70,16 +70,16 @@ export default function App() {
   const [historicalLedger, setHistoricalLedger] = useState(null); 
   const [showPinPrompt, setShowPinPrompt] = useState(false);
   const [pinInput, setPinInput] = useState('');
-  
   const [isInvoiceDropdown, setIsInvoiceDropdown] = useState(false);
   const [availableInvoices, setAvailableInvoices] = useState([]);
 
   // --- INVENTORY TABLE STATE ---
   const [items, setItems] = useState([{ id: Date.now(), desc: '', qty: 0, unit: 'Trays', price: 0, discount: 0, subtotal: 0, totalCount: 0 }]);
 
-  // --- LIVE LEDGER STATE ---
+  // --- LIVE LEDGER STATE (NEW ROUND OFF ADDED) ---
   const [paidAmount, setPaidAmount] = useState(''); 
   const [advanceApplied, setAdvanceApplied] = useState('');
+  const [roundOffAmount, setRoundOffAmount] = useState(''); 
   const [paymentMode, setPaymentMode] = useState('Cash');
   const [checkNumber, setCheckNumber] = useState('');
 
@@ -88,45 +88,32 @@ export default function App() {
     const currentPass = passwordToTest || appPassword;
     try {
       const response = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        redirect: "follow",
+        method: 'POST', headers: { "Content-Type": "text/plain;charset=utf-8" }, redirect: "follow",
         body: JSON.stringify({ action: 'getInitialData', password: currentPass }),
       });
       const data = await response.json();
-      
       if (data.success === false) return false; 
-
       if (data.clients) setClientsDb(data.clients);
       if (data.batches) {
         setBatchOptions(data.batches);
         if (!isViewingPast && !batch) setBatch(data.batches[0]); 
       }
       if (data.nextInvoice && !isViewingPast) {
-        setInvoiceNo(data.nextInvoice);
-        setNextGlobalInvoice(data.nextInvoice);
+        setInvoiceNo(data.nextInvoice); setNextGlobalInvoice(data.nextInvoice);
       }
       if (data.nextAdvance) setAdvanceNo(data.nextAdvance);
       return true;
-    } catch (error) {
-      alert("Failed to connect to the database.");
-      return false;
-    }
+    } catch (error) { alert("Failed to connect to the database."); return false; }
   };
 
   const handleLogin = async (e) => {
     e.preventDefault();
     const isSuccess = await fetchInitialData(loginInput);
-    if (isSuccess) {
-      setAppPassword(loginInput);
-      setIsAuthenticated(true);
-    } else {
-      alert("Incorrect Password or Database Error. Access Denied.");
-      setLoginInput('');
-    }
+    if (isSuccess) { setAppPassword(loginInput); setIsAuthenticated(true); } 
+    else { alert("Incorrect Password or Database Error. Access Denied."); setLoginInput(''); }
   };
 
-  // --- LOGIC & ACCOUNT BALANCING ---
+  // --- LOGIC & ACCOUNT BALANCING (WITH ROUND OFF) ---
   const grandTotal = items.reduce((sum, item) => sum + item.subtotal, 0);
   const selectedClientData = clientsDb.find(c => c.name === client);
   const currentAdvance = selectedClientData ? selectedClientData.advance : 0;
@@ -134,7 +121,9 @@ export default function App() {
   
   const numericPaidAmount = parseFloat(paidAmount) || 0;
   const numericAdvanceApplied = parseFloat(advanceApplied) || 0;
-  const totalDeductions = numericPaidAmount + numericAdvanceApplied;
+  const numericRoundOff = parseFloat(roundOffAmount) || 0;
+  
+  const totalDeductions = numericPaidAmount + numericAdvanceApplied + numericRoundOff;
   const balanceDue = Math.max(0, grandTotal - totalDeductions);
 
   let derivedStatus = 'Pending';
@@ -153,43 +142,30 @@ export default function App() {
   let finalAccountText = "Total Account Balance:";
   let finalAccountValue = 0;
 
-  if (netPending > netAdvance) {
-    finalAccountText = "Total Account Balance:";
-    finalAccountValue = netPending - netAdvance;
-  } else if (netAdvance > netPending) {
-    finalAccountText = "Remaining Account Advance:";
-    finalAccountValue = netAdvance - netPending;
-  } else {
-    finalAccountText = "Total Account Balance:";
-    finalAccountValue = 0;
-  }
+  if (netPending > netAdvance) { finalAccountText = "Total Account Balance:"; finalAccountValue = netPending - netAdvance; } 
+  else if (netAdvance > netPending) { finalAccountText = "Remaining Account Advance:"; finalAccountValue = netAdvance - netPending; } 
+  else { finalAccountText = "Total Account Balance:"; finalAccountValue = 0; }
 
   // --- SECURED DATABASE HANDLERS ---
   const handleAddClientSubmit = async () => {
-    if (!newClientData.name.trim() || !newClientData.phone.trim() || !newClientData.address.trim()) {
-      alert("Error: Client Name, Phone, and Address are strictly required!"); return;
-    }
+    if (!newClientData.name.trim() || !newClientData.phone.trim() || !newClientData.address.trim()) { alert("Error: Required fields missing!"); return; }
     try {
       const payload = { action: 'addClient', password: appPassword, name: newClientData.name.trim(), phone: newClientData.phone.trim(), address: newClientData.address.trim(), notes: newClientData.notes.trim() };
       const response = await fetch(SCRIPT_URL, { method: 'POST', headers: { "Content-Type": "text/plain;charset=utf-8" }, redirect: "follow", body: JSON.stringify(payload) });
       const result = await response.json();
-      if (result.success) {
-        alert(`Success! ${newClientData.name} has been added.`);
-        await fetchInitialData(); setClient(newClientData.name.trim()); setShowAddClientModal(false); setNewClientData({ name: '', phone: '', address: '', notes: '' }); 
-      } else alert(`Failed: ${result.message}`);
+      if (result.success) { alert(`Success!`); await fetchInitialData(); setClient(newClientData.name.trim()); setShowAddClientModal(false); setNewClientData({ name: '', phone: '', address: '', notes: '' }); } 
+      else alert(`Failed: ${result.message}`);
     } catch (error) { alert("Connection error."); }
   };
 
   const handleEditClientSubmit = async () => {
-    if (!editClientData.phone.trim() || !editClientData.address.trim()) { alert("Error: Phone and Address are required!"); return; }
+    if (!editClientData.phone.trim() || !editClientData.address.trim()) { alert("Error: Required fields missing!"); return; }
     try {
       const payload = { action: 'editClient', password: appPassword, name: editClientData.name, phone: editClientData.phone.trim(), address: editClientData.address.trim(), notes: editClientData.notes.trim() };
       const response = await fetch(SCRIPT_URL, { method: 'POST', headers: { "Content-Type": "text/plain;charset=utf-8" }, redirect: "follow", body: JSON.stringify(payload) });
       const result = await response.json();
-      if (result.success) {
-        alert(`Success! ${editClientData.name}'s profile updated.`);
-        await fetchInitialData(); setShowEditClientModal(false);
-      } else alert(`Failed: ${result.message}`);
+      if (result.success) { alert(`Success!`); await fetchInitialData(); setShowEditClientModal(false); } 
+      else alert(`Failed: ${result.message}`);
     } catch (error) { alert("Connection error."); }
   };
 
@@ -209,10 +185,7 @@ export default function App() {
     let clean = query.toString().toUpperCase().trim();
     if (clean.includes('-')) {
       let parts = clean.replace('INV-', '').split('-');
-      if (parts.length === 2) {
-        let yyMM = parts[0].replace(/[^0-9]/g, ''); let seq = parts[1].replace(/[^0-9]/g, '').padStart(3, '0');
-        return `INV-${yyMM}-${seq}`;
-      }
+      if (parts.length === 2) { let yyMM = parts[0].replace(/[^0-9]/g, ''); let seq = parts[1].replace(/[^0-9]/g, '').padStart(3, '0'); return `INV-${yyMM}-${seq}`; }
     }
     let digits = clean.replace(/[^0-9]/g, ''); const d = new Date(); const yy = d.getFullYear().toString().slice(-2); const currMM = ('0' + (d.getMonth() + 1)).slice(-2);
     if (digits.length <= 3) return `INV-${yy}${currMM}-${digits.padStart(3, '0')}`;
@@ -230,13 +203,8 @@ export default function App() {
       });
       const data = await response.json();
       if (data.success && data.results && data.results.length > 0) {
-        if (type === 'Invoice No') {
-          populateDashboard(data.results[0]);
-        } else {
-          setAvailableInvoices(data.results.reverse()); 
-          setIsInvoiceDropdown(true); 
-          // FIX: We no longer erase your new invoice number when you pick a client!
-        }
+        if (type === 'Invoice No') { populateDashboard(data.results[0]); } 
+        else { setAvailableInvoices(data.results.reverse()); setIsInvoiceDropdown(true); }
       } else {
         if (type === 'Invoice No') alert(`No invoices found for: ${query}`);
         else setIsInvoiceDropdown(false); 
@@ -244,11 +212,7 @@ export default function App() {
     } catch (error) { alert("Search failed."); }
   };
 
-  const handleInvoiceSearch = () => {
-    if (!invoiceNo) return;
-    const finalQuery = formatSearchQuery(invoiceNo);
-    setInvoiceNo(finalQuery); executeSearch('Invoice No', finalQuery);
-  };
+  const handleInvoiceSearch = () => { if (!invoiceNo) return; const finalQuery = formatSearchQuery(invoiceNo); setInvoiceNo(finalQuery); executeSearch('Invoice No', finalQuery); };
   const handleDateChange = (e) => { const selectedDate = e.target.value; setDate(selectedDate); executeSearch('Date', selectedDate); };
   
   const handleInvoiceDropdownSelect = (e) => {
@@ -261,15 +225,17 @@ export default function App() {
     setInvoiceNo(invoiceData.invoiceNo); setDate(invoiceData.date || new Date().toISOString().split('T')[0]); setClient(invoiceData.client || '');
     const loadedBatch = invoiceData.batch || 'Batch 1'; setBatch(loadedBatch); setBatchOptions(prev => prev.includes(loadedBatch) ? prev : [...prev, loadedBatch]);
     
-    let histPending = 0; let histAdvance = 0;
+    let histPending = 0; let histAdvance = 0; let histRoundOff = 0;
     if (invoiceData.rawDetails) {
       const details = JSON.parse(invoiceData.rawDetails);
-      setPaidAmount(details.paidAmount || ''); setAdvanceApplied(details.advanceApplied || ''); setPaymentMode(details.paymentMode || 'Cash'); setCheckNumber(details.checkNumber || '');
-      histPending = details.snapshotPending || 0;
-      histAdvance = details.snapshotAdvance || 0;
-    } else { setPaidAmount(''); setAdvanceApplied(invoiceData.advanceUsed || ''); setPaymentMode(invoiceData.payMode || 'Cash'); }
+      setPaidAmount(details.paidAmount || ''); setAdvanceApplied(details.advanceApplied || ''); 
+      setRoundOffAmount(details.roundOffAmount || ''); // Restores Round Off UI state
+      setPaymentMode(details.paymentMode || 'Cash'); setCheckNumber(details.checkNumber || '');
+      histPending = details.snapshotPending || 0; histAdvance = details.snapshotAdvance || 0;
+      histRoundOff = parseFloat(details.roundOffAmount) || 0;
+    } else { setPaidAmount(''); setAdvanceApplied(invoiceData.advanceUsed || ''); setRoundOffAmount(''); setPaymentMode(invoiceData.payMode || 'Cash'); }
     
-    setHistoricalLedger({ grandTotal: invoiceData.grandTotal, paidStr: invoiceData.paid, balance: invoiceData.balance, status: invoiceData.status, snapshotPending: histPending, snapshotAdvance: histAdvance });
+    setHistoricalLedger({ grandTotal: invoiceData.grandTotal, paidStr: invoiceData.paid, balance: invoiceData.balance, status: invoiceData.status, snapshotPending: histPending, snapshotAdvance: histAdvance, roundOff: histRoundOff });
     if (invoiceData.rawItems) setItems(JSON.parse(invoiceData.rawItems));
     else setItems([{ id: Date.now(), desc: 'Past Item', qty: 0, unit: 'Trays', price: 0, discount: 0, subtotal: invoiceData.grandTotal || 0, totalCount: 0 }]);
     
@@ -278,19 +244,15 @@ export default function App() {
 
   const handleUnlockSubmit = async () => {
     try {
-      const response = await fetch(SCRIPT_URL, {
-        method: 'POST', headers: { "Content-Type": "text/plain;charset=utf-8" }, redirect: "follow",
-        body: JSON.stringify({ action: 'verifyPin', password: appPassword, pin: pinInput })
-      });
+      const response = await fetch(SCRIPT_URL, { method: 'POST', headers: { "Content-Type": "text/plain;charset=utf-8" }, redirect: "follow", body: JSON.stringify({ action: 'verifyPin', password: appPassword, pin: pinInput }) });
       const data = await response.json();
-      if (data.success) {
-        setIsUnlocked(true); setValidatedPin(pinInput); setShowPinPrompt(false); setPinInput('');
-      } else { alert("Incorrect PIN. Access Denied."); setPinInput(''); }
-    } catch (error) { alert("Connection error. Could not verify PIN."); }
+      if (data.success) { setIsUnlocked(true); setValidatedPin(pinInput); setShowPinPrompt(false); setPinInput(''); } 
+      else { alert("Incorrect PIN. Access Denied."); setPinInput(''); }
+    } catch (error) { alert("Connection error."); }
   };
 
   const handleClearSearch = () => {
-    setClient(''); setPaidAmount(''); setAdvanceApplied(''); setPaymentMode('Cash'); setCheckNumber('');
+    setClient(''); setPaidAmount(''); setAdvanceApplied(''); setRoundOffAmount(''); setPaymentMode('Cash'); setCheckNumber('');
     setItems([{ id: Date.now(), desc: '', qty: 0, unit: 'Trays', price: 0, discount: 0, subtotal: 0, totalCount: 0 }]);
     setIsViewingPast(false); setIsUnlocked(false); setHistoricalLedger(null); setIsInvoiceDropdown(false);
     setDate(new Date().toISOString().split('T')[0]); setInvoiceNo(nextGlobalInvoice); setValidatedPin(''); 
@@ -300,12 +262,11 @@ export default function App() {
   const handleAddFunds = async () => {
     const num = parseFloat(fundsToAdd) || 0;
     if (num > 0 && client && advanceNo) {
-      const payload = { action: 'logAdvance', password: appPassword, date: new Date().toISOString().split('T')[0], advNo: advanceNo, client: client, amount: num, payMode: advancePayMode };
       try {
+        const payload = { action: 'logAdvance', password: appPassword, date: new Date().toISOString().split('T')[0], advNo: advanceNo, client: client, amount: num, payMode: advancePayMode };
         const response = await fetch(SCRIPT_URL, { method: 'POST', headers: { "Content-Type": "text/plain;charset=utf-8" }, redirect: "follow", body: JSON.stringify(payload) });
         const result = await response.json();
-        if (result.success) { alert(`Success! Advance ${advanceNo} added.`); fetchInitialData(); }
-        else alert(`Failed: ${result.message}`);
+        if (result.success) { alert(`Success!`); fetchInitialData(); } else alert(`Failed: ${result.message}`);
       } catch (error) { alert("Connection error."); }
     }
     setShowAddFunds(false); setFundsToAdd(''); setAdvancePayMode('Cash'); 
@@ -314,21 +275,18 @@ export default function App() {
   const handlePayDebt = async () => {
     const num = parseFloat(fundsToAdd) || 0;
     if (num > 0 && client) {
-      const payload = { action: 'payDebt', password: appPassword, date: new Date().toISOString().split('T')[0], client: client, amount: num, payMode: advancePayMode, advNo: advanceNo };
       try {
+        const payload = { action: 'payDebt', password: appPassword, date: new Date().toISOString().split('T')[0], client: client, amount: num, payMode: advancePayMode, advNo: advanceNo };
         const response = await fetch(SCRIPT_URL, { method: 'POST', headers: { "Content-Type": "text/plain;charset=utf-8" }, redirect: "follow", body: JSON.stringify(payload) });
         const result = await response.json();
-        if (result.success) {
-          let msg = `Success! Applied ₹${formatINR(result.paidToDebt)} to Invoices.`;
-          if (result.remaining > 0 && advancePayMode !== 'Apply Advance') msg += `\nSurplus of ₹${formatINR(result.remaining)} added to Advance!`;
-          alert(msg); fetchInitialData(); 
-        } else alert(result.message); 
+        if (result.success) { alert(`Success! Applied to Invoices.`); fetchInitialData(); } else alert(result.message); 
       } catch (error) { alert("Connection error."); }
     }
     setShowAddFunds(false); setFundsToAdd(''); setAdvancePayMode('Cash'); 
   };
 
   const handleFundsInputChange = (e) => setFundsToAdd(enforceTwoDecimals(e.target.value));
+  
   const handleInputChange = (id, field, value) => {
     const newItems = items.map(item => {
       if (item.id === id) {
@@ -345,27 +303,30 @@ export default function App() {
     });
     setItems(newItems);
   };
+
+  // --- STRICT INPUT CAPPING ---
   const handleAmountPaidChange = (e) => {
     let safeVal = enforceTwoDecimals(e.target.value); if (safeVal === '') { setPaidAmount(''); return; }
-    const numVal = parseFloat(safeVal) || 0; const maxApplicable = roundMath(grandTotal - (parseFloat(advanceApplied) || 0));
+    const numVal = parseFloat(safeVal) || 0; const maxApplicable = roundMath(grandTotal - (parseFloat(advanceApplied) || 0) - (parseFloat(roundOffAmount) || 0));
     if (numVal > maxApplicable) safeVal = maxApplicable.toString(); setPaidAmount(safeVal);
   };
   const handleAdvanceAppliedChange = (e) => {
     let safeVal = enforceTwoDecimals(e.target.value); if (safeVal === '') { setAdvanceApplied(''); return; }
-    const numVal = parseFloat(safeVal) || 0; const maxApplicable = Math.min(currentAdvance, roundMath(grandTotal - (parseFloat(paidAmount) || 0)));
+    const numVal = parseFloat(safeVal) || 0; const maxApplicable = Math.min(currentAdvance, roundMath(grandTotal - (parseFloat(paidAmount) || 0) - (parseFloat(roundOffAmount) || 0)));
     if (numVal > maxApplicable) safeVal = maxApplicable.toString(); setAdvanceApplied(safeVal);
   };
+  const handleRoundOffChange = (e) => {
+    let safeVal = enforceTwoDecimals(e.target.value); if (safeVal === '') { setRoundOffAmount(''); return; }
+    const numVal = parseFloat(safeVal) || 0; const maxApplicable = roundMath(grandTotal - (parseFloat(paidAmount) || 0) - (parseFloat(advanceApplied) || 0));
+    if (numVal > maxApplicable) safeVal = maxApplicable.toString(); setRoundOffAmount(safeVal);
+  };
+
   const addRow = () => setItems([...items, { id: Date.now(), desc: '', qty: 0, unit: 'Trays', price: 0, discount: 0, subtotal: 0, totalCount: 0 }]);
   const removeRow = (id) => { if (items.length > 1) setItems(items.filter(item => item.id !== id)); };
   const resetDashboardAfterSave = () => { handleClearSearch(); fetchInitialData(); };
 
   const submitInvoiceData = async () => {
-    // FIX: Bulletproof guard rail to prevent blank invoice crashes
-    if (!invoiceNo || invoiceNo.toString().trim() === '') {
-      alert("System Error: Invoice Number is blank. Please select 'Create New Invoice' from the dropdown to continue.");
-      return false;
-    }
-
+    if (!invoiceNo || invoiceNo.toString().trim() === '') { alert("System Error: Invoice Number is blank."); return false; }
     const validItems = items.filter(i => parseFloat(i.qty) > 0);
     if (validItems.length === 0) { alert("Error: Cannot save empty invoice."); return false; }
     const itemsSummary = validItems.map(i => { const priceUnit = i.unit === 'Trays' ? 'Egg' : i.unit; return `${i.qty} ${i.unit} - ${i.desc || 'Item'} @ ₹${i.price}/${priceUnit} (Disc: ₹${i.discount})`; }).join(' | ');
@@ -374,20 +335,23 @@ export default function App() {
     const totalBirds = validItems.filter(i => i.unit === 'Birds').reduce((sum, i) => sum + (parseFloat(i.qty) || 0), 0);
     const totalEggs = validItems.filter(i => i.unit === 'Trays').reduce((sum, i) => sum + ((parseFloat(i.qty) || 0) * 30), 0);
     const formatINR = (val) => Number(val).toLocaleString('en-IN');
+    
     let formattedPaidColumn = `₹${formatINR(numericPaidAmount)}`; 
-    if (numericAdvanceApplied > 0) {
-      const totalCombinedPayment = numericAdvanceApplied + numericPaidAmount;
-      formattedPaidColumn = `(ADV ₹${formatINR(numericAdvanceApplied)}) + ₹${formatINR(numericPaidAmount)} = ₹${formatINR(totalCombinedPayment)}`;
+    if (numericAdvanceApplied > 0 || numericRoundOff > 0) {
+      let breakdown = [];
+      if (numericPaidAmount > 0) breakdown.push(`₹${formatINR(numericPaidAmount)}`);
+      if (numericAdvanceApplied > 0) breakdown.push(`(ADV ₹${formatINR(numericAdvanceApplied)})`);
+      if (numericRoundOff > 0) breakdown.push(`(ROUND OFF ₹${formatINR(numericRoundOff)})`);
+      formattedPaidColumn = breakdown.join(' + ') + ` = ₹${formatINR(totalDeductions)}`;
     }
+
     const payload = {
       action: 'saveInvoice', password: appPassword, pin: validatedPin, invoiceNo, date, batch, client, totalTrays, totalEggs, totalBirds, grandTotal,
       paid: formattedPaidColumn, advanceUsed: numericAdvanceApplied, balance: balanceDue, status: derivedStatus, items: itemsSummary,
-      payMode: finalPaymentMode, ledgerEntry: "Sale", isUpdate: isViewingPast && isUnlocked,
+      payMode: finalPaymentMode, ledgerEntry: "Sale", isUpdate: isViewingPast && isUnlocked, roundOff: numericRoundOff,
       rawItems: JSON.stringify(validItems), 
       rawDetails: JSON.stringify({ 
-        paidAmount, advanceApplied, paymentMode, checkNumber,
-        snapshotPending: displayPending,  
-        snapshotAdvance: displayAdvance   
+        paidAmount, advanceApplied, roundOffAmount, paymentMode, checkNumber, snapshotPending: displayPending, snapshotAdvance: displayAdvance   
       })
     };
     try {
@@ -442,6 +406,8 @@ export default function App() {
     while (remainingItems.length > 0) { paginatedItems.push(remainingItems.slice(0, PAGE_2_MAX)); remainingItems = remainingItems.slice(PAGE_2_MAX); }
   }
 
+  const displayRoundOff = (isViewingPast && !isUnlocked) ? (historicalLedger?.roundOff || 0) : numericRoundOff;
+
   return (
     <div className="dashboard-container">
       <img src="/letterhead.png" alt="preload" style={{ display: 'none' }} />
@@ -455,7 +421,6 @@ export default function App() {
         <div className="form-group">
           <label>Invoice Number <span style={{fontWeight: 'normal', fontSize: '11px', color: '#666', marginLeft: '5px'}}>(Press Enter to Search)</span></label>
           <div style={{ display: 'flex', gap: '5px' }}>
-            {/* FIX: The dropdown safely defaults to "NEW" without erasing your number */}
             {isInvoiceDropdown ? (
               <select className="smart-field" value={isViewingPast ? invoiceNo : "NEW"} onChange={handleInvoiceDropdownSelect} style={{ flex: 1 }}>
                 <option value="" disabled>-- Select Past Invoice --</option>
@@ -501,14 +466,9 @@ export default function App() {
           
           <select value={client} disabled={isViewingPast && !isUnlocked} onChange={(e) => { 
             const val = e.target.value; 
-            if (val === 'NEW') {
-              setShowAddClientModal(true); 
-            } else { 
-              setClient(val); 
-              setShowAddFunds(false); 
-              setAdvanceApplied(''); 
-              if (val) executeSearch('Client', val); 
-              else setIsInvoiceDropdown(false);  
+            if (val === 'NEW') { setShowAddClientModal(true); } else { 
+              setClient(val); setShowAddFunds(false); setAdvanceApplied(''); 
+              if (val) executeSearch('Client', val); else setIsInvoiceDropdown(false);  
             }
           }}>
             <option value="">-- Select Client --</option>
@@ -562,7 +522,7 @@ export default function App() {
         ) : (
           <div className="ledger-grid">
             <div className="ledger-item"><span>Grand Total (This Invoice):</span><strong>{grandTotal.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</strong></div>
-            <div className="ledger-item"><span>Amount Paid (₹):</span><input type="text" className="smart-field payment-input-box" value={formatInputINR(paidAmount)} onChange={handleAmountPaidChange} placeholder="Amount (₹)" disabled={grandTotal <= 0 || (parseFloat(advanceApplied) || 0) >= grandTotal}/></div>
+            <div className="ledger-item"><span>Amount Paid (₹):</span><input type="text" className="smart-field payment-input-box" value={formatInputINR(paidAmount)} onChange={handleAmountPaidChange} placeholder="Amount (₹)" disabled={grandTotal <= 0 || (parseFloat(advanceApplied) || 0) + (parseFloat(roundOffAmount) || 0) >= grandTotal}/></div>
             <div className="ledger-item">
               <span>Payment Mode:</span>
               <select value={paymentMode} onChange={(e) => { setPaymentMode(e.target.value); if (e.target.value !== 'Cheque') setCheckNumber(''); }} className="payment-mode-select">
@@ -570,7 +530,11 @@ export default function App() {
               </select>
               {paymentMode === 'Cheque' && ( <input type="text" placeholder="Check No." className="check-number-input" value={checkNumber} onChange={(e) => setCheckNumber(e.target.value)} /> )}
             </div>
-            <div className="ledger-item"><span>Advance Applied (₹):</span><input type="text" className="smart-field payment-input-box" value={formatInputINR(advanceApplied)} onChange={handleAdvanceAppliedChange} placeholder="Advance (₹)" disabled={grandTotal <= 0 || currentAdvance <= 0 || (parseFloat(paidAmount) || 0) >= grandTotal}/></div>
+            <div className="ledger-item"><span>Advance Applied (₹):</span><input type="text" className="smart-field payment-input-box" value={formatInputINR(advanceApplied)} onChange={handleAdvanceAppliedChange} placeholder="Advance (₹)" disabled={grandTotal <= 0 || currentAdvance <= 0 || (parseFloat(paidAmount) || 0) + (parseFloat(roundOffAmount) || 0) >= grandTotal}/></div>
+            
+            {/* NEW ROUND OFF INPUT */}
+            <div className="ledger-item"><span>Round Off (₹):</span><input type="text" className="smart-field payment-input-box" value={formatInputINR(roundOffAmount)} onChange={handleRoundOffChange} placeholder="Round Off (₹)" disabled={grandTotal <= 0 || (parseFloat(paidAmount) || 0) + (parseFloat(advanceApplied) || 0) >= grandTotal}/></div>
+            
             <div className="ledger-item"><span>Balance Due (This Invoice):</span><strong>{balanceDue.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</strong></div>
             <div className="ledger-item"><span>Status:</span><span className={`payment-status-badge status-${derivedStatus.toLowerCase()}`}>{derivedStatus}</span></div>
           </div>
@@ -698,7 +662,13 @@ export default function App() {
                   </div>
                   <div className="print-totals-numbers">
                     <p><strong>Grand Total (This Invoice):</strong> ₹{formatINR(historicalLedger && !isUnlocked ? historicalLedger.grandTotal : grandTotal)}</p>
-                    <p><strong>Amount Paid:</strong> ₹{formatINR(historicalLedger && !isUnlocked ? (historicalLedger.grandTotal - historicalLedger.balance) : (numericPaidAmount + numericAdvanceApplied))}</p>
+                    <p><strong>Amount Paid:</strong> ₹{formatINR(historicalLedger && !isUnlocked ? (historicalLedger.grandTotal - historicalLedger.balance - (historicalLedger.roundOff||0)) : (numericPaidAmount + numericAdvanceApplied))}</p>
+                    
+                    {/* NEW PDF OUTPUT FOR ROUND OFF */}
+                    {displayRoundOff > 0 && (
+                      <p style={{ color: '#d32f2f' }}><strong>Round Off:</strong> ₹{formatINR(displayRoundOff)}</p>
+                    )}
+                    
                     <p><strong>Balance Due (This Invoice):</strong> ₹{formatINR(effectiveBalanceDue)}</p>
                     
                     {(displayPending > 0 || displayAdvance > 0) && (
