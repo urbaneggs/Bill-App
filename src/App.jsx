@@ -49,6 +49,7 @@ export default function App() {
   const [batchOptions, setBatchOptions] = useState([]); 
   const [client, setClient] = useState('');
   const [clientsDb, setClientsDb] = useState([]);
+  const [invoiceRemark, setInvoiceRemark] = useState('');
   
   // --- CLIENT MODAL STATES ---
   const [showAddClientModal, setShowAddClientModal] = useState(false);
@@ -74,7 +75,7 @@ export default function App() {
   const [availableInvoices, setAvailableInvoices] = useState([]);
 
   // --- INVENTORY TABLE STATE ---
-  const [items, setItems] = useState([{ id: Date.now(), desc: '', qty: 0, unit: 'Trays', price: 0, discount: 0, subtotal: 0, totalCount: 0 }]);
+  const [items, setItems] = useState([{ id: Date.now() + Math.random(), desc: '', qty: 0, unit: 'Trays', price: 0, discount: 0, subtotal: 0, totalCount: 0 }]);
 
   // --- LIVE LEDGER STATE ---
   const [paidAmount, setPaidAmount] = useState(''); 
@@ -231,13 +232,14 @@ export default function App() {
       setPaidAmount(details.paidAmount || ''); setAdvanceApplied(details.advanceApplied || ''); 
       setRoundOffAmount(details.roundOffAmount || ''); 
       setPaymentMode(details.paymentMode || 'Cash'); setCheckNumber(details.checkNumber || '');
+      setInvoiceRemark(details.invoiceRemark || '');
       histPending = details.snapshotPending || 0; histAdvance = details.snapshotAdvance || 0;
       histRoundOff = parseFloat(details.roundOffAmount) || 0;
-    } else { setPaidAmount(''); setAdvanceApplied(invoiceData.advanceUsed || ''); setRoundOffAmount(''); setPaymentMode(invoiceData.payMode || 'Cash'); }
+    } else { setPaidAmount(''); setAdvanceApplied(invoiceData.advanceUsed || ''); setRoundOffAmount(''); setPaymentMode(invoiceData.payMode || 'Cash'); setInvoiceRemark(''); }
     
     setHistoricalLedger({ grandTotal: invoiceData.grandTotal, paidStr: invoiceData.paid, balance: invoiceData.balance, status: invoiceData.status, snapshotPending: histPending, snapshotAdvance: histAdvance, roundOff: histRoundOff });
     if (invoiceData.rawItems) setItems(JSON.parse(invoiceData.rawItems));
-    else setItems([{ id: Date.now(), desc: 'Past Item', qty: 0, unit: 'Trays', price: 0, discount: 0, subtotal: invoiceData.grandTotal || 0, totalCount: 0 }]);
+    else setItems([{ id: Date.now() + Math.random(), desc: 'Past Item', qty: 0, unit: 'Trays', price: 0, discount: 0, subtotal: invoiceData.grandTotal || 0, totalCount: 0 }]);
     
     setIsViewingPast(true); setIsUnlocked(false); setIsInvoiceDropdown(false);
   };
@@ -252,8 +254,8 @@ export default function App() {
   };
 
   const handleClearSearch = () => {
-    setClient(''); setPaidAmount(''); setAdvanceApplied(''); setRoundOffAmount(''); setPaymentMode('Cash'); setCheckNumber('');
-    setItems([{ id: Date.now(), desc: '', qty: 0, unit: 'Trays', price: 0, discount: 0, subtotal: 0, totalCount: 0 }]);
+    setClient(''); setPaidAmount(''); setAdvanceApplied(''); setRoundOffAmount(''); setPaymentMode('Cash'); setCheckNumber(''); setInvoiceRemark('');
+    setItems([{ id: Date.now() + Math.random(), desc: '', qty: 0, unit: 'Trays', price: 0, discount: 0, subtotal: 0, totalCount: 0 }]);
     setIsViewingPast(false); setIsUnlocked(false); setHistoricalLedger(null); setIsInvoiceDropdown(false);
     setDate(new Date().toISOString().split('T')[0]); setInvoiceNo(nextGlobalInvoice); setValidatedPin(''); 
     if (batchOptions.length > 0) setBatch(batchOptions[0]);
@@ -320,7 +322,7 @@ export default function App() {
     if (numVal > maxApplicable) safeVal = maxApplicable.toString(); setRoundOffAmount(safeVal);
   };
 
-  const addRow = () => setItems([...items, { id: Date.now(), desc: '', qty: 0, unit: 'Trays', price: 0, discount: 0, subtotal: 0, totalCount: 0 }]);
+  const addRow = () => setItems([...items, { id: Date.now() + Math.random(), desc: '', qty: 0, unit: 'Trays', price: 0, discount: 0, subtotal: 0, totalCount: 0 }]);
   const removeRow = (id) => { if (items.length > 1) setItems(items.filter(item => item.id !== id)); };
   const resetDashboardAfterSave = () => { handleClearSearch(); fetchInitialData(); };
 
@@ -350,7 +352,7 @@ export default function App() {
       payMode: finalPaymentMode, ledgerEntry: "Sale", isUpdate: isViewingPast && isUnlocked, roundOff: numericRoundOff,
       rawItems: JSON.stringify(validItems), 
       rawDetails: JSON.stringify({ 
-        paidAmount, advanceApplied, roundOffAmount, paymentMode, checkNumber, snapshotPending: displayPending, snapshotAdvance: displayAdvance   
+        paidAmount, advanceApplied, roundOffAmount, paymentMode, checkNumber, snapshotPending: displayPending, snapshotAdvance: displayAdvance, invoiceRemark   
       })
     };
     try {
@@ -484,6 +486,12 @@ export default function App() {
               <button className={popoverMode === 'advance' ? "btn-add-funds" : "btn-pay-debt"} onClick={popoverMode === 'advance' ? handleAddFunds : handlePayDebt} style={{ marginLeft: '10px' }}>{popoverMode === 'advance' ? 'Add' : 'Submit'}</button>
             </div>
           )}
+        </div>
+        
+        {/* NEW INVOICE REMARK BOX */}
+        <div className="form-group">
+          <label>Invoice Remark (Optional)</label>
+          <input type="text" className="smart-field" value={invoiceRemark} onChange={(e) => setInvoiceRemark(e.target.value)} disabled={isViewingPast && !isUnlocked} placeholder="One-off remark for this bill..." />
         </div>
       </div>
       
@@ -632,7 +640,9 @@ export default function App() {
                     <p><strong>Invoice No:</strong> {invoiceNo || 'Draft'}</p>
                     <p><strong>Date:</strong> {formatDateToDDMMYYYY(date)}</p>
                     <p><strong>Batch:</strong> {batch}</p>
+                    {/* BOTH REMARKS ARE NOW STACKED RIGHT HERE UNDER BATCH */}
                     {selectedClientData && selectedClientData.notes && ( <p><strong>Notes:</strong> {selectedClientData.notes}</p> )}
+                    {invoiceRemark && <p><strong>Remark:</strong> {invoiceRemark}</p>}
                   </div>
                 </div>
               )}
